@@ -1,0 +1,321 @@
+     H DFTACTGRP(*NO) ACTGRP(*NEW)
+      /COPY QSYSINC/QRPGLESRC,QUSLMBR
+      *------------------------------------------------------------------------
+      * @InstallPF Fields
+      *------------------------------------------------------------------------
+     D @InstallPF      DS
+     D  SrcName                      10A
+     D  SrcType                      10A
+     D  ProcTag                       1A
+      *------------------------------------------------------------------------
+      * Prototypes / Reference Data Structures
+      *------------------------------------------------------------------------
+      *‚Create User Space
+     D CrtUsrSpc       PR                  ExtPGM( 'QUSCRTUS' )
+     D   ParUSQual                         LikeDS( RefDSObjQual ) Const
+     D   ParExtAttr                  10A                          Const
+     D   ParInitSize                 10I 0                        Const
+     D   ParInitVal                   1A                          Const
+     D   ParPublicAut                10A                          Const
+     D   ParDescript                 50A                          Const
+     D   ParReplace                  10A   Options( *NoPass )     Const
+     D   ParErrDS                          LikeDS( RefDSErrCde )
+     D                                     Options( *NoPass : *VarSize )
+     D   ParDomain                   10A   Options( *NoPass )     Const
+     D   ParTrSize                   10I 0 Options( *NoPass )     Const
+     D   ParOptSpcAlign...
+     D                                1A   Options( *NoPass )     Const
+
+      *‚Delete User Space
+     D DltUsrSpc       PR                  ExtPGM( 'QUSDLTUS' )
+     D   ParUSQual                         LikeDS( RefDSObjQual ) Const
+     D   ParErrDS                          LikeDS( RefDSErrCde )
+     D                                     Options( *VarSize )
+     D   ParDomain                   10A   Options( *NoPass )     Const
+     D   ParTrSize                   10I 0 Options( *NoPass )     Const
+     D   ParOptSpcAlign...
+     D                                1A   Options( *NoPass )     Const
+
+      *‚Retrieve Pointer To User Space
+     D PtrUsrSpc       PR                  ExtPGM( 'QUSPTRUS' )
+     D   ParUSQual                         LikeDS( RefDSObjQual ) Const
+     D   ParUsPtr                      *
+     D   ParErrDS                          LikeDS( RefDSErrCde )
+     D                                     Options( *NoPass : *VarSize )
+
+      *‚QUSLMBR  - List Member
+     D RtvLstMbr       PR                  ExtPgm('QUSLMBR')
+     D   ParUSQual                         LikeDS(RefDSObjQual)  Const
+     D   ParFormat                    8A                         Const
+     D   ParFileQual                       LikeDS(RefDSObjQual)  Const
+     D   ParMember                   10A                         Const
+     D   ParOvrProc                   1                          Const
+     D   ParErrDS                          LikeDS(RefDSErrCde)
+     D                                     Options(*NoPass : *VarSize)
+      *‚Header Information
+     D RefDSGenHdr100  DS                  Qualified Based( DummyPtr )
+     D   UserArea                    64A
+     D   SizeGenHdr                  10I 0
+     D   ReleaseLVL                   4A
+     D   Format                       8A
+     D   APIUsed                     10A
+     D   CrtDateTime                 13A
+     D   InfoSts                      1A
+     D   SizeUsrSpc                  10I 0
+     D   OffSetInput                 10I 0
+     D   SizeInput                   10I 0
+     D   OffSetHeader                10I 0
+     D   SizeHeader                  10I 0
+     D   OffSetData...
+     D                               10I 0
+     D   SizeData                    10I 0
+     D   NbrListEntry                10I 0
+     D   SizeListEntry...
+     D                               10I 0
+     D   CCSIDListEntry...
+     D                               10I 0
+     D   Country                      2A
+     D   LangId                       3A
+     D   SubsetListInd...
+     D                                1A
+     D   Reseved1                    42A
+
+      * Qualified Object
+     D RefDSObjQual    DS                  Qualified Based( DummyPtr )
+     D   Name                        10A
+     D   Lib                         10A
+
+      * API ErrorDS
+     D RefDSErrCde     DS                  Qualified
+     D   ByteProv                    10I 0 Inz( %Size( RefDSErrCde ) )
+     D   ByteAvail                   10I 0
+     D   MsgId                        7A
+     D   Reserved                     1A
+     D   ExceptData                 256A
+
+     D*------------------------------------------------------------------------
+     D* Global variables
+     D*------------------------------------------------------------------------
+     D GblDSListHdr    DS                  LikeDS( RefDSGenHdr100 )
+     D                                     Based( GblPtrDSGenHdr )
+     D GblDSUSL0200    DS                  LikeDS( QUSL0200 )
+     D                                     Based( GblPtrDSUSL0200 )
+     D GblDSErrCde     DS                  LikeDS( RefDSErrCde ) Inz( *LikeDS )
+     D GblDSUsrSPc     DS                  Qualified
+     D    Name                       10A   Inz( 'MBRLIST' )
+     D    Lib                        10A   Inz( 'QTEMP' )
+     D GblDSFileQual   DS                  Qualified
+     D    Name                       10A   Inz( 'QCMDSRC' )
+     D    Lib                        10A   Inz( 'SMGLIB' )
+     D GblText         S             50A
+     D strCMD          S            256A   Varying
+     D GblIndex        S             10I 0
+     D PGMSDS         SDS                    Qualified
+     D    MsgTxt              91    140A
+      *------------------------------------------------------------------------*
+     D strGet@Install  C                   'SELECT *                           +
+     D                                      INTO   :@InstallPF                 +
+     D                                      FROM   QTEMP/@INSTALLPF'
+      *------------------------------------------------------------------------*
+      *------------------------------------------------------------------------
+      * Main Process
+      *------------------------------------------------------------------------
+     C*
+     C                   EVAL      strCMD = strGet@Install
+     C                   ExSR      srLoadMembers
+     C                   EvaL      *InLR = *ON
+     C*
+      *------------------------------------------------------------------------
+      * Load Members of QCMDSRC
+      *------------------------------------------------------------------------
+     C     srLoadMembers BegSR
+     C*
+     C* Create / Fill User Space
+     C*
+     C                   Monitor
+     C                   ExSR      srCreatePF
+     C                   Callp     CrtUsrSpc( GblDSUsrSpc : *BLANKS : 256    :
+     C                                        x'00'       : '*USE'  : 'CMDs' :
+     C                                        '*YES'      : GblDSErrCde      )
+     C                   Callp     RtvLstMbr( GblDSUsrSpc   : 'MBRL0200'     :
+     C                                        GblDSFileQual :'*ALL' : *Zeros :
+     C                                        GblDSErrCde                    )
+     C                   Callp     PtrUsrSpc( GblDSUsrSpc : GblPtrDSGenHdr   :
+     C                                        GblDSErrCde                    )
+     C* Loop call stack Entries
+     C*
+     C                   For       GblIndex = 1 to GblDSListHdr.NbrListEntry
+     C*
+     C                   If        GblIndex = 1
+     C                   EvaL      GblPtrDSUSL0200 = GblPtrDSGenHdr +
+     C                                               GblDSListHdr.OffsetData
+     C                   Else
+     C                   EvaL      GblPtrDSUSL0200 += GblDSListHdr.SizeListEntry
+     C                   EndIf
+     C* Not Installer
+     C                   If        %subst( GblDSUSL0200.QUSMN01 : 1 : 8 ) <>
+     C                             '@INSTALL'
+     C                   ExSR      srSaveMembers
+     C                   EndIf
+     C                   EndFor
+     C*
+     C* Compile Sources one at a time
+     C*
+     C/EXEC SQL
+     C+                  Declare csr@Install insensitive cursor for wkGet@Install
+     C/END-EXEC
+     C/EXEC SQL
+     C+                  Prepare wkGet@Install From :strCMD
+     C/END-EXEC
+     C*
+     C                   ExSR      srCompilePF
+     C                   ExSR      srCompileLF
+     C                   ExSR      srCompileDSPF
+     C                   ExSR      srCompileCL
+     C                   ExSR      srCompileRPG
+     C                   ExSR      srCompileCMD
+     C*
+     C* Delete user Space
+     C*
+     C                   Callp     DltUsrSpc( GblDSUsrSpc : GblDSErrCde )
+     C                   On-Error
+     C                   Callp     DltUsrSpc( GblDSUsrSpc : GblDSErrCde )
+     C                   EndMON
+     C*
+     C                   EndSR
+      *------------------------------------------------------------------------
+      * Create Installer PF
+      *------------------------------------------------------------------------
+     C     srCreatePF    BegSR
+     C*
+     C*EXEC SQL
+     C*                  Set Option COMMIT = *NONE, DATFMT = *ISO
+     C*END-EXEC
+      *
+      * Drop Table
+     C/EXEC SQL
+     C+                  Drop Table QTEMP/@INSTALLPF
+     C/END-EXEC
+      *
+      * Table Description
+     C/EXEC SQL
+     C+                  Create Table QTEMP/@INSTALLPF (
+     C+                  SRCNAME  for Column INSRCNME Char( 10 ) Not Null ,
+     C+                  SRCTYPE  for Column INSRCTYP Char( 10 ) Not Null ,
+     C+                  PROCTAG  for Column INPRCTAG Char( 01 ) Not Null )
+     C+                  RCDFMT INSTALLPR
+     C/END-EXEC
+      *
+      * Table Description
+     C/EXEC SQL
+     C+                  Label on Table QTEMP/@INSTALLPF is
+     C+                  'List of Source to be Installed'
+     C/END-EXEC
+      *
+      * Column Heading
+     C/EXEC SQL
+     C+                  Label on Column QTEMP/@INSTALLPF (
+     C+                  SRCNAME          IS 'Source Name'     ,
+     C+                  SRCTYPE          IS 'Source Type'     ,
+     C+                  PROCTAG          IS 'Process Tag'     )
+     C/END-EXEC
+      *
+      * Text Description
+     C/EXEC SQL
+     C+                  Label on Column QTEMP/@INSTALLPF (
+     C+                  SRCNAME     TEXT IS 'Source Name'     ,
+     C+                  SRCTYPE     TEXT IS 'Source Type'     ,
+     C+                  PROCTAG     TEXT IS 'Process Tag'     )
+     C/END-EXEC
+     C*
+     C                   EndSR
+      *------------------------------------------------------------------------
+      * Save Members to Temporary PF then Compile
+      *------------------------------------------------------------------------
+     C     srSaveMembers BegSR
+     C*
+     C/EXEC SQL
+     C+                  Insert into QTEMP/@INSTALLPF
+     C+                  Values( :GblDSUSL0200.QUSMN01,
+     C+                          :GBLDSUSL0200.QUSST  , ' ' )
+     C/END-EXEC
+     C*
+     C                   EndSR
+      *------------------------------------------------------------------------
+      * Compile all Physical Files
+      *------------------------------------------------------------------------
+     C     srCompilePF   BegSR
+     C*
+     C                   EvaL      strCMD += ' Where INSRCTYP = ''PF'''
+     C/EXEC SQL
+     C+                  Open csr@Install
+     C/END-EXEC
+     C                   Dow       SQLCod = 0
+     C/EXEC SQL
+     C+                  Fetch     Next from csr@Install
+     C+                  Into      :@InstallPF
+     C/END-EXEC
+     C                   EndDo
+     C*
+     C                   EndSR
+      *------------------------------------------------------------------------
+      * Compile all Logical Files
+      *------------------------------------------------------------------------
+     C     srCompileLF   BegSR
+     C*
+     C/EXEC SQL
+     C+                  Select *
+     C+                  Into   :@InstallPF
+     C+                  From   QTEMP/@INSTALLPF
+     C+                  Where  INSRCTYP = 'LF'
+     C/END-EXEC
+     C                   EndSR
+      *------------------------------------------------------------------------
+      * Compile all Display Files
+      *------------------------------------------------------------------------
+     C     srCompileDSPF BegSR
+     C*
+     C/EXEC SQL
+     C+                  Select *
+     C+                  Into   :@InstallPF
+     C+                  From   QTEMP/@INSTALLPF
+     C+                  Where  INSRCTYP = 'DSPF'
+     C/END-EXEC
+     C                   EndSR
+      *------------------------------------------------------------------------
+      * Compile all CLP /  CLLE Files
+      *------------------------------------------------------------------------
+     C     srCompileCL   BegSR
+     C*
+     C/EXEC SQL
+     C+                  Select *
+     C+                  Into   :@InstallPF
+     C+                  From   QTEMP/@INSTALLPF
+     C+                  Where  INSRCTYP = 'CLP' or INSRCTYP = 'CLLE'
+     C/END-EXEC
+     C                   EndSR
+      *------------------------------------------------------------------------
+      * Compile all RPG /  RPGLE Files
+      *------------------------------------------------------------------------
+     C     srCompileRPG  BegSR
+     C*
+     C/EXEC SQL
+     C+                  Select *
+     C+                  Into   :@InstallPF
+     C+                  From   QTEMP/@INSTALLPF
+     C+                  Where  INSRCTYP = 'RPG' or INSRCTYP = 'RPGLE'
+     C/END-EXEC
+     C                   EndSR
+      *------------------------------------------------------------------------
+      * Compile all CMD Files
+      *------------------------------------------------------------------------
+     C     srCompileCMD  BegSR
+     C*
+     C/EXEC SQL
+     C+                  Select *
+     C+                  Into   :@InstallPF
+     C+                  From   QTEMP/@INSTALLPF
+     C+                  Where  INSRCTYP = 'CMD'
+     C/END-EXEC
+     C                   EndSR
+      *------------------------------------------------------------------------

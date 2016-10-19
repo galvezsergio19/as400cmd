@@ -1,0 +1,138 @@
+     A* DATER - Utility to Manipulate source fields.
+     A* Developed By: Sergio Galvez
+     A*
+     A                                      DSPSIZ( 24 80 *DS3 )
+     A                                      INDARA
+     A          R FMT010
+     A                                      CF03( 03 'EXIT' )
+     A                                      CF11( 11 'VIEW' )
+     A                                      CF13( 13 'INFO' )
+     A                                      OVERLAY
+     A                                  1 26'SOURCE FILE MANIPULATOR - SQL'
+     A                                  4 42'Alias. . . . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  3 42'Type . . . . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  5 44'Library  . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  3  3'Source . . . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  5  3'Member . . . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  4  5'Library  . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  9  3'Type Choice below, press Enter.'
+     A                                      COLOR( WHT )
+     A                                  6  3'Description  . . . . .'
+     A                                      COLOR( WHT )
+     A                                  7  3'==================================-
+     A                                      ===================================-
+     A                                      ===='
+     A            F1ALSN        10A  O  4 66
+     A            F1ALSL        10A  O  5 66
+     A            F1SRCT        10A  O  3 66
+     A            F1SRCN        10A  O  3 27
+     A            F1SRCL        10A  O  4 27
+     A            F1SRCM        10A  O  5 27
+     A            F1DSCN        49A  O  6 27
+     A            F1DATE         6  0B 11 40
+     A  91 93                               DSPATR( UL )
+     A N91                                  DSPATR( ND )
+     A  92 93                               DSPATR( RI )
+     A  93                                  DSPATR( PC )
+     A            F1DTA1        20   B 12 40
+     A  94 96                               DSPATR( UL )
+     A N94                                  DSPATR( ND )
+     A  95 96                               DSPATR( RI )
+     A  96                                  DSPATR( PC )
+     A            F1DTA2         3   B 12 61
+     A  94 96                               DSPATR( UL )
+     A N94                                  DSPATR( ND )
+     A  95 96                               DSPATR( RI )
+     A  96                                  DSPATR( PC )
+     A            RADBTN         2Y 0B 11  5SNGCHCFLD
+     A                                      CHOICE( 1 'Source Date (YMD) ' )
+     A                                      CHOICE( 2 'Source Data (Ver + Lin)')
+     A          R FMT020
+     A                                      CF03( 03 'EXIT' )
+     A                                      CF11( 11 'VIEW' )
+     A                                      CF12( 12 'CANCEL' )
+     A                                      CF13(13 'INFO')
+     A                                      OVERLAY
+     A                                  1 26'SOURCE FILE MANIPULATOR - SQL'
+     A                                  4 42'Alias. . . . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  3 42'Type . . . . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  5 44'Library  . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  3  3'Source . . . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  5  3'Member . . . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  4  5'Library  . . . . . .'
+     A                                      COLOR( WHT )
+     A                                  9  3'Type Choice below, press Enter.'
+     A                                      COLOR( WHT )
+     A                                  6  3'Description  . . . . .'
+     A                                      COLOR( WHT )
+     A                                  7  3'==================================-
+     A                                      ===================================-
+     A                                      ===='
+     A            F1ALSN        10A  O  4 66
+     A            F1ALSL        10A  O  5 66
+     A            F1SRCT        10A  O  3 66
+     A            F1SRCN        10A  O  3 27
+     A            F1SRCL        10A  O  4 27
+     A            F1SRCM        10A  O  5 27
+     A            F1DSCN        49A  O  6 27
+     A            F1DATE         6S 0O 11 40
+     A            F1DTA1        20A  O 12 40
+     A            F1DTA2         3A  O 12 61
+     A                                 11  4'1. Source Date (YMD)'
+     A                                 12  4'2. Source Data (Ver + Lin)'
+     A                                 14  3'Type WHERE conditions, press Enter-
+     A                                      .'
+     A                                      COLOR( WHT )
+     A            WHERE1        74   B 16  3
+     A            WHERE2        74   B 17  3
+     A            WHERE3        74   B 18  3
+     A            WHERE4        74   B 19  3
+     A            WHERE5        74   B 20  3
+     A            WHERE6        74   B 21  3
+     A          R FMTMSG
+     A                                      OVERLAY
+     A                                 23 03'F3=Exit'
+     A                                      COLOR( BLU )
+     A                                 23 18'F11=View Source'
+     A                                      COLOR( BLU )
+     A  97                             23 41'F12=Cancel'
+     A                                      COLOR( BLU )
+     A                                 23 60'F13=Information'
+     A                                      COLOR( BLU )
+     A            MSGFLD        76A  O 24  3COLOR( WHT )
+     A          R INF010
+     A                                      CF03
+     A                                      WINDOW(4 6 15 65)
+     A                                      WDWBORDER( (*CHAR '........') )
+     A                                  1 27'Options - Help'
+     A                                      COLOR( WHT )
+     A                                  3  2'Use this tool to perform manipulat-
+     A                                      ion of source members. Select'
+     A                                  4  2'the SET field to change / update o-
+     A                                      n the two choices below and'
+     A                                  5  2'press Enter. Fields are reuired fo-
+     A                                      r each choices so you won''t'
+     A                                  6  2'proceed until all are valid.'
+     A                                  8  2'For WHERE condiion, use the guide -
+     A                                      below:'
+     A                                      COLOR( WHT )
+     A                                 10  2'SRCDAT (Source Date = Numeric)'
+     A                                 11  2'SRCDTA (Source Data = Char.  )'
+     A                                 12  2'SRCSEQ (Source Seq. = Numeric)'
+     A                                 10 34'Operands: >, <, =, <>'
+     A                                 11 34'Functions: substr(fld, st, end)'
+     A                                 12 46'||'
+     A                                 12 49'(concat)'
+     A                                 14  2'F3=Exit'
+     A                                      COLOR( WHT )

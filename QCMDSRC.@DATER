@@ -1,0 +1,278 @@
+      * DATER - Utility to Manipulate source fields.
+      * Developed By: Sergio Galvez
+      **************************************************************************
+      *
+     F@DATED    CF   E             WORKSTN INDds( Keys )
+      *
+      * Program status data structure
+     D                SDS
+     D UserLib               254    263
+      *
+      * Program work variables
+     D Aliasn          S             10A
+     D Aliasl          S             10A
+     D SrcLib          S             10A
+     D SrcNme          S             10A
+     D SrcMbr          S             10A
+     D SrcTyp          S             10A
+     D SrcDsc          S             50A
+     D SQLStr          S          10000A
+      *
+      *-------------------------------*
+      * QCMDEXC - Execute Command API *
+      *-------------------------------*
+     D CmdLine         PR                  ExtPgm( 'QCMDEXC' )
+     D                              256
+     D                               15  5
+      *
+     D  CmdStr         S            256
+     D  CmdLen         S             15  5
+      *
+      * Indicators used in display file
+     D Keys            DS
+     D  Exit                  03     03N
+     D  View                  11     11N
+     D  Cancel                12     12N
+     D  Info                  13     13N
+     D  DateDsp               91     91N                                        Display Date Field
+     D  DateErr               92     92N                                        Display Date Error
+     D  DatePos               93     93N                                        Position to Date
+     D  DataDsp               94     94N                                        Display Data Field
+     D  DataErr               95     95N                                        Display Data Error
+     D  DataPos               96     96N                                        Position to Data
+     D  Protect               97     97N                                        Protect Field
+      *
+      *Error Messages
+     D EMsg            S             78    Dim( 10 ) CtData PerRcd( 1 )         Error Message
+
+      **************************************************************************
+      * Parameter List / Key List
+      **************************************************************************
+
+     C     *Entry        Plist
+     C                   Parm                    Aliasn
+     C                   Parm                    Aliasl
+     C                   Parm                    SrcNme
+     C                   Parm                    SrcLib
+     C                   Parm                    SrcMbr
+     C                   Parm                    SrcTyp
+     C                   Parm                    SrcDsc
+
+      **************************************************************************
+      *
+      * M A I N   R O U T I N E
+      * The Main Routine will handle all the
+      * process needed for the list of members
+      *
+      **************************************************************************
+      *
+     C                   Write     FMTMSG
+     C                   ExSr      SrAlias
+     C                   ExSr      SrInits
+     C                   EvaL      *INLR = '1'
+
+      *------------------------------------------------------------------------*
+      *    SrAlias - Create Alias - SQL
+      *------------------------------------------------------------------------*
+     C     SrAlias       BegSr
+      *
+      /Free
+       //Remove duplicate Aliases
+       exec sql
+       SET OPTION Commit = *NONE, DatFMT = *ISO ;
+       SQLStr = 'Drop Alias ' + %trim( Aliasl ) + '/' + %trim( Aliasn ) ;
+       Exec SQL Execute Immediate : SQLStr ;
+
+       //Create the Alias
+       SQLStr = 'Create Alias ' + %trim( Aliasl ) + '/' + %trim( Aliasn ) + ' '+
+                'For ' + %trim( SrcLib ) + '/' + %trim( SrcNme ) + ' (' +
+                %trim( SrcMbr ) + ')';
+       Exec SQL Execute Immediate : SQLStr ;
+      /End-Free
+      *
+     C                   EndSr
+      *------------------------------------------------------------------------*
+      *    SrInits - Display Initial Screen
+      *------------------------------------------------------------------------*
+     C     SrInits       BegSr
+      *
+     C                   DoW       Exit = *OFF
+     C                   EvaL      Protect = '0'
+     C                   EvaL      F1SRCN = SrcNme
+     C                   EvaL      F1SRCL = SrcLib
+     C                   EvaL      F1SRCM = SrcMbr
+     C                   EvaL      F1SRCT = SrcTyp
+     C                   EvaL      F1ALSN = Aliasn
+     C                   EvaL      F1ALSL = Aliasl
+     C                   EvaL      F1DSCN = SrcDsc
+     C                   Write     FMTMSG
+     C                   ExFMT     FMT010
+      * Function Keys
+     C                   Select
+     C                   When      Exit
+     C                   EvaL      *inLR = *On
+     C                   When      View
+     C                   ExSr      SrRunSrc
+     C                   When      Info
+     C                   ExFMT     INF010
+     C                   Other
+     C                   ExSr      SrValid8
+     C                   EndSL
+     C                   EndDo
+      *
+     C                   EndSr
+      *------------------------------------------------------------------------*
+      *    SrRunQry - Start SEU Browse
+      *------------------------------------------------------------------------*
+     C     SrRunSrc      BegSr
+      *
+     C                   EvaL      CmdStr = 'STRSEU SRCFILE(' +
+     C                                       %Trim( SrcLib ) + '/' +
+     C                                       %Trim( SrcNme ) + ') ' +
+     C                                       'SRCMBR(' +
+     C                                       %Trim( SrcMbr ) + ') ' +
+     C                                       'OPTION(5)'
+     C                   EvaL      CmdLen = %Len( CmdStr )
+     C                   Callp(e)  CmdLine( CmdStr:CmdLen )
+      *
+     c                   EndSr
+      *------------------------------------------------------------------------*
+      *    SrValid8 - Validate Fields
+      *------------------------------------------------------------------------*
+     C     SrValid8      BegSr
+      *
+     C                   Select
+     C                   When      RadBtn = 0
+     C                   EvaL      DateDsp = '0'
+     C                   EvaL      DatePos = '0'
+     C                   EvaL      DataDsp = '0'
+     C                   EvaL      DataPos = '0'
+     C                   EvaL      F1DATE = *Zeros
+     C                   EvaL      F1DTA1 = *Blanks
+     C                   EvaL      F1DTA2 = *Blanks
+     C                   EvaL      MSGFLD = EMsg( 1 )
+      *
+     C                   When      RadBtn = 1
+      *
+      * Validate Date
+     C                   If        RadBtn = 1 and DateDsp = '0'
+     C                   EvaL      MSGFLD = EMsg( 3 )
+     C                   EvaL      DataErr = '1'
+      *
+     C                   EvaL      DateDsp = '1'
+     C                   EvaL      DatePos = '1'
+     C                   EvaL      DataDsp = '0'
+     C                   EvaL      DataPos = '0'
+     C                   EvaL      F1DTA1 = *Blanks
+     C                   EvaL      F1DTA2 = *Blanks
+      *
+     C                   Else
+     C                   EvaL      DataErr = '0'
+     C                   EvaL      MSGFLD = *Blanks
+     C                   ExSr      SrWhrScr
+     C                   Endif
+      *
+     C                   When      RadBtn = 2
+      *
+     C                   EvaL      DataDsp = '1'
+     C                   EvaL      DataPos = '1'
+     C                   EvaL      DateDsp = '0'
+     C                   EvaL      DatePos = '0'
+     C                   EvaL      F1DATE = *Zeros
+      * Validate Data
+     C                   If        F1DTA1 = *Blanks
+     C                   EvaL      MSGFLD = EMsg( 2 )
+     C                   EvaL      DateErr = '1'
+     C                   else
+     C                   EvaL      DateErr = '0'
+     C                   EvaL      MSGFLD = *Blanks
+     C                   ExSr      SrWhrScr
+     C                   EndIf
+     C                   EndSL
+      *
+     C                   EndSr
+      *------------------------------------------------------------------------*
+      *    SrSQLWhr - SQL Where Screen
+      *------------------------------------------------------------------------*
+     C     SrWhrScr      BegSr
+      *
+     C                   EvaL      Protect = '1'
+     C                   DoW       Protect
+     C                   Write     FMTMSG
+     C                   ExFMT     FMT020
+      *
+     C                   Select
+     C                   When      Exit
+     C                   EvaL      *inLR = *On
+     C                   EvaL      Protect = '0'
+      *
+     C                   When      View
+     C                   ExSr      SrRunSrc
+     C                   EvaL      Protect = '1'
+      *
+     C                   When      Cancel
+     C                   EvaL      Protect = '0'
+      *
+     C                   When      Info
+     C                   ExFMT     INF010
+      *
+     C                   Other
+     C                   ExSr      SrUpdat
+     C                   EvaL      Protect = '0'
+     C                   EndSL
+     C                   EndDo
+      *
+     C                   EndSr
+      *------------------------------------------------------------------------*
+      *    SrUpdat - SQL Update Command
+      *------------------------------------------------------------------------*
+     C     SrUpdat       BegSr
+      *
+     C                   If        RadBtn = 1
+      /Free
+       //Source Date to be modified
+       SQLStr = 'Update ' + %trim( Aliasl ) + '/' + %trim( Aliasn ) + ' ' +
+                'Set SrcDat = ' + %char( F1DATE );
+                ExSr SrSQLWhr;
+       Exec SQL Execute Immediate : SQLStr ;
+      /End-free
+      *
+     C                   ElseIf    RadBtn = 2
+      /Free
+       //Source Data to be modified
+       //Line Field is Blank
+       If F1DTA2 <> *Blanks;
+       SQLStr = 'Update ' + %trim( Aliasl ) + '/' + %trim( Aliasn ) + ' ' +
+                'Set SrcDta = ''' + %Trim( F1DTA1 ) + '''' +
+                ' || SUBSTR( SRCDTA,' + %Trim( F1DTA2 ) + ')';
+                ExSr SrSQLWhr;
+       Else;
+       SQLStr = 'Update ' + %trim( Aliasl ) + '/' + %trim( Aliasn ) + ' ' +
+                'Set SrcDta = ''' + %Trim( F1DTA1 ) + '''';
+                ExSr SrSQLWhr;
+       Endif;
+       Exec SQL Execute Immediate : SQLStr ;
+      /End-free
+     C                   EndIf
+      *
+     C                   EndSr
+      *------------------------------------------------------------------------*
+      *    SrSQLWhr - SQL Where Command
+      *------------------------------------------------------------------------*
+     C     SrSQLWhr      BegSr
+      *
+     C                   If        WHERE1 <> *BLanks or WHERE2 <> *Blanks or
+     C                             WHERE3 <> *BLanks or WHERE4 <> *Blanks or
+     C                             WHERE5 <> *BLanks or WHERE5 <> *Blanks
+     C                   EvaL      SQLStr = %Trim( SQLStr ) + ' WHERE ' +
+     C                                      %Trim( WHERE1 ) + %Trim( WHERE2 ) +
+     C                                      %Trim( WHERE3 ) + %Trim( WHERE4 ) +
+     C                                      %Trim( WHERE5 ) + %Trim( WHERE6 )
+     C                   EndIf
+      *
+     C                   EndSr
+      *------------------------------------------------------------------------*
+** EMsg (Error Messages)
+Please select an option.
+Field must not be blank.
+Date must be valid.

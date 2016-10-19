@@ -1,0 +1,85 @@
+      /Define ProgramHeaderSpecs
+      /COPY SMGLIB/QCMDSRC,CMDREPO
+      /COPY QSYSINC/QRPGLESRC,QSPRILSP
+      /COPY QSYSINC/QRPGLESRC,QUSEC
+      /UnDefine ProgramHeaderSpecs
+      *--------------------------------*
+      /DEFINE F_SNDCOMPMSG
+      /COPY QCMDSRC,CMDREPO
+      **************************************************************************
+      *--------------------------------*
+      * QSPRILSP - Retrieve Last Spool *
+      *--------------------------------*
+     D GetLstSplFID    PR                  EXTPGM( 'QSPRILSP' )
+     D  RcvVar                        1    OPTIONS( *VARSIZE )
+     D  LenRcvVar                    10I 0 CONST
+     D  FmtRcvVar                     8    CONST
+     D  QUSEC                              LIKEDS( QUSEC )
+      *-------------------------------*
+      * QCAPCMD - Execute Command API *
+      *-------------------------------*
+     D Execute         PR                  EXTPGM( 'QCAPCMD' )
+     D  Command                     512A   CONST
+     D  Length                       10I 0 CONST
+     D  DSName                             LIKEds( QCAP0100 )
+     D  DSLen                        10I 0 CONST
+     D  FormatName                    8A   CONST
+     D  ChangedCmd                  512A   CONST
+     D  LenAvailChg                  10I 0 CONST
+     D  LenChgdCmd                   10I 0 CONST
+     D  ApiError                           LIKEds( APIErrorDS )
+
+     D APIErrorDS      DS                  QUALIFIED
+     D  BytesP                       10I 0 INZ( %SIZE( ApiErrorDS ) )
+     D  BytesA                       10I 0 INZ( 0 )
+     D  Messageid                     7A
+     D  Reserved                      1A
+     D  MessageDta                  256A
+
+     D QCAP0100        DS
+     D                               10I 0 INZ
+     D                                1A   INZ( '0' )
+     D                                1A   INZ( '0' )
+     D                                1A   INZ( '0' )
+     D                                4A   INZ( x'00000000' )
+     D                                9A   INZ( *ALLX'00' )
+     D                               10I 0 INZ( %LEN( QCAP0100 ) )
+     D                                8A   INZ( 'CPOP0100' )
+     D                                1    INZ
+     D                               10I 0 INZ
+     D                               10I 0 INZ
+
+     D CmdString       S            512A   INZ
+     D ChangedCmd      S            512A   INZ
+     D LenAvailChg     S             10I 0 INZ
+     D LenChgdCmd      S             10I 0 INZ
+
+      /FREE
+
+       QUSBPRV = 0                                                       ;
+       CLEAR QSPL0100                                                    ;
+       MONITOR                                                           ;
+       GetLstSplFID( QSPL0100 : %SIZE( QSPL0100 ) : 'SPRL0100' : QUSEC ) ;
+
+       CmdString = 'DSPSPLF FILE(' + %TRIM( QSPSN03 ) + ') '             +
+                   'JOB(' + %TRIM( QSPJNBR00 ) + '/' + %TRIM( QSPUN00 )  +
+                   '/' + %TRIM( QSPJN00 ) + ') '                         +
+                   'SPLNBR(' + %CHAR( QSPSNBR03 ) + ')'                  ;
+
+       CALLP  Execute( CmdString : %LEN( %TRIM( CmdString ) )            :
+                       QCAP0100 : %LEN( QCAP0100 ) : 'CPOP0100'          :
+                       ChangedCmd : LenAvailChg : LenChgdCmd             :
+                       APIErrorDs )                                      ;
+
+       IF APIErrorDs.Messageid = 'CPF3344'                               ;
+          F_SNDCOMPMSG( 'No Spool found for Job ' + %TRIM( QSPJN00 ) )   ;
+       ENDIF                                                             ;
+
+       ON-ERROR                                                          ;
+       F_SNDCOMPMSG( 'No Spool found for Current Job or Thread' )        ;
+       ENDMON                                                            ;
+
+       *INLR = *ON                                                       ;
+       RETURN                                                            ;
+
+      /END-FREE

@@ -1,0 +1,795 @@
+      * DBR - Utility to display the mapping of database files.
+      * Developed By: Sergio Galvez
+      *
+      **************************************************************************
+      *
+     f@DBD      CF   E             WORKSTN IndDS( Keys )
+     f                                     SFile( DSPFFDSFL : FFDRRN )
+     f                                     SFile( DSPFFDLF  : LFRRN  )
+     fPGMFILE   IF   F 5000        DISK    ExtFile( TempFile )
+     f                                     UsrOPN
+      *
+      * Program status data structure
+     d                SDS
+     d UserLib               254    263
+      *
+      * Program work variables
+     d TempFile        s             20a
+     d SAVPF           s             10a
+     d SAVLIB          s             10a
+     d FFDArr          s             10a   Dim( 999 )
+     d FFDArrDsc       s             50a   Dim( 999 )
+     d KeyFldArr       s             10a   Dim( 010 )
+     d KeyFldNum       s              1a   Dim( 010 )
+     d KeyFldSeq       s              1a   Dim( 010 )
+     d LFArr           s             10a   Dim( 999 )
+     d Ctr             s              5s 0
+     d LFCtr           s              5s 0
+     d LFTot           s              5s 0
+     d Idx             s              5s 0
+     d SpFltr          s             10a
+     d MYLIB           s             10a   Inz( 'SMGLIB' )
+      *
+      *-------------------------------*
+      * QCMDEXC - Execute Command API *
+      *-------------------------------*
+     d CmdLine         pr                  ExtPgm( 'QCMDEXC' )
+     d                              256
+     d                               15  5
+      * Stand alone fieLds for QCMDEXC
+     d  CmdStr         s            256
+     d  CmdLen         s             15  5
+      *
+      * Indicators used in display file
+     d Keys            ds
+     d  Exit                  03     03n
+     d  Logical               04     04n
+     d  Refresh               05     05n
+     d  Update                06     06n
+     d  Clear                 07     07n
+     d  KeySort               08     08n
+     d  RunQuery              11     11n
+     d  Previous              12     12n
+     d  ObjDescpn             13     13n
+     d  DspPfm                15     15n
+     d  SflClr1               20     20n
+     d  SflClr2               21     21n
+     d  MoreKeys              24     24n
+     d  KeyInd                31     31n
+     d  LFInd                 32     32n
+     d  UnqKey                33     33n
+     d  DspKey                34     34n
+      *
+      * DS to hold the field description (DSPFFD)
+     d DSDSPFFD        DS          5000
+     d  WHFILE                       10a   Overlay( DSDSPFFD : 001 )
+     d  WHLIB                        10a   Overlay( DSDSPFFD : 011 )
+     d  WHCRTD                        7a   Overlay( DSDSPFFD : 021 )
+     d  WHFTYP                        1a   Overlay( DSDSPFFD : 028 )
+     d  WHCNT                         5s 0 Overlay( DSDSPFFD : 029 )
+     d  WHDTTM                       13a   Overlay( DSDSPFFD : 034 )
+     d  WHNAME                       10a   Overlay( DSDSPFFD : 047 )
+     d  WHSEQ                        13a   Overlay( DSDSPFFD : 057 )
+     d  WHTEXT                       50a   Overlay( DSDSPFFD : 070 )
+     d  WHFLDN                        5s 0 Overlay( DSDSPFFD : 120 )
+     d  WHRLEN                        5s 0 Overlay( DSDSPFFD : 125 )
+     d  WHFLDI                       10a   Overlay( DSDSPFFD : 130 )
+     d  WHFLDE                       10a   Overlay( DSDSPFFD : 140 )
+     d  WHFOBO                        5s 0 Overlay( DSDSPFFD : 150 )
+     d  WHIBO                         5s 0 Overlay( DSDSPFFD : 155 )
+     d  WHFLDB                        5s 0 Overlay( DSDSPFFD : 160 )
+     d  WHFLDD                        2s 0 Overlay( DSDSPFFD : 165 )
+     d  WHFLDP                        2s 0 Overlay( DSDSPFFD : 167 )
+     d  WHFTXT                       50a   Overlay( DSDSPFFD : 169 )
+     d  WHRCDE                        3s 0 Overlay( DSDSPFFD : 219 )
+     d  WHRFIL                       10a   Overlay( DSDSPFFD : 222 )
+     d  WHRLIB                       10a   Overlay( DSDSPFFD : 232 )
+     d  WHRFMT                       10a   Overlay( DSDSPFFD : 242 )
+     d  WHRFLD                       10a   Overlay( DSDSPFFD : 252 )
+     d  WHCHD1                       20a   Overlay( DSDSPFFD : 262 )
+     d  WHCHD2                       20a   Overlay( DSDSPFFD : 282 )
+     d  WHCHD3                       20a   Overlay( DSDSPFFD : 302 )
+     d  WHFLDT                        1a   Overlay( DSDSPFFD : 322 )
+     d  WHFIOB                        1a   Overlay( DSDSPFFD : 323 )
+     d  WHECDE                        2a   Overlay( DSDSPFFD : 324 )
+     d  WHEWRD                       32a   Overlay( DSDSPFFD : 326 )
+     d  WHVCNE                        4s 0 Overlay( DSDSPFFD : 358 )
+     d  WHNFLD                        5s 0 Overlay( DSDSPFFD : 362 )
+     d  WHNIND                        2s 0 Overlay( DSDSPFFD : 367 )
+     d  WHSHFT                        1a   Overlay( DSDSPFFD : 369 )
+     d  WHALTY                        1a   Overlay( DSDSPFFD : 370 )
+     d  WHALIS                       30a   Overlay( DSDSPFFD : 371 )
+     d  WHJREF                        2s 0 Overlay( DSDSPFFD : 401 )
+     d  WHDFTL                        2s 0 Overlay( DSDSPFFD : 403 )
+     d  WHDFT                        30a   Overlay( DSDSPFFD : 405 )
+     d  WHCHRI                        1a   Overlay( DSDSPFFD : 435 )
+     d  WHCTNT                        1a   Overlay( DSDSPFFD : 436 )
+     d  WHFONT                       10a   Overlay( DSDSPFFD : 437 )
+     d  WHCSWD                        3s 1 Overlay( DSDSPFFD : 447 )
+     d  WHCSHI                        3s 1 Overlay( DSDSPFFD : 450 )
+     d  WHBCNM                       10a   Overlay( DSDSPFFD : 453 )
+     d  WHBCHI                        3s 1 Overlay( DSDSPFFD : 463 )
+     d  WHMAP                         1a   Overlay( DSDSPFFD : 466 )
+     d  WHMAPS                        5s 0 Overlay( DSDSPFFD : 467 )
+     d  WHMAPL                        5s 0 Overlay( DSDSPFFD : 472 )
+     d  WHSYSN                        8a   Overlay( DSDSPFFD : 477 )
+     d  WHRES1                        2a   Overlay( DSDSPFFD : 485 )
+     d  WHSQLT                        1a   Overlay( DSDSPFFD : 487 )
+     d  WHHEX                         1a   Overlay( DSDSPFFD : 488 )
+     d  WHPNTS                        4s 1 Overlay( DSDSPFFD : 489 )
+     d  WHCSID                        5s 0 Overlay( DSDSPFFD : 492 )
+     d  WHFMT                         4a   Overlay( DSDSPFFD : 495 )
+     d  WHSEP                         1a   Overlay( DSDSPFFD : 499 )
+     d  WHVARL                        1a   Overlay( DSDSPFFD : 500 )
+     d  WHALLC                        5s 0 Overlay( DSDSPFFD : 501 )
+     d  WHNULL                        1a   Overlay( DSDSPFFD : 504 )
+     d  WHFCSN                       10a   Overlay( DSDSPFFD : 505 )
+     d  WHFCSL                       10a   Overlay( DSDSPFFD : 515 )
+     d  WHFCPN                       10a   Overlay( DSDSPFFD : 525 )
+     d  WHFCPL                       10a   Overlay( DSDSPFFD : 535 )
+     d  WHCDFN                       10a   Overlay( DSDSPFFD : 545 )
+     d  WHCDFL                       10a   Overlay( DSDSPFFD : 555 )
+     d  WHDCDF                       10a   Overlay( DSDSPFFD : 565 )
+     d  WHDCDL                       10a   Overlay( DSDSPFFD : 575 )
+     d  WHTXRT                        3s 0 Overlay( DSDSPFFD : 585 )
+     d  WHFLDG                        5s 0 Overlay( DSDSPFFD : 587 )
+     d  WHFDSL                        5s 0 Overlay( DSDSPFFD : 592 )
+     d  WHFSPS                        4s 1 Overlay( DSDSPFFD : 597 )
+     d  WHCFPS                        4s 1 Overlay( DSDSPFFD : 600 )
+     d  WHIFPS                        4s 1 Overlay( DSDSPFFD : 603 )
+     d  WHDBLL                       10s 0 Overlay( DSDSPFFD : 606 )
+     d  WHDBUN                      128a   Overlay( DSDSPFFD : 612 )
+     d  WHDBUL                       10a   Overlay( DSDSPFFD : 740 )
+     d  WHDBFC                        1a   Overlay( DSDSPFFD : 750 )
+     d  WHDBFI                        1a   Overlay( DSDSPFFD : 751 )
+     d  WHDBRP                        1a   Overlay( DSDSPFFD : 752 )
+     d  WHDBWP                        1a   Overlay( DSDSPFFD : 753 )
+     d  WHDBRC                        1a   Overlay( DSDSPFFD : 754 )
+     d  WHDBOU                        1a   Overlay( DSDSPFFD : 755 )
+     d  WHPSUD                        1a   Overlay( DSDSPFFD : 756 )
+     d  WHBCUH                        5s 2 Overlay( DSDSPFFD : 757 )
+     d  WHFPSW                        4s 1 Overlay( DSDSPFFD : 762 )
+     d  WHFSPW                        4s 1 Overlay( DSDSPFFD : 765 )
+     d  WHCFPW                        4s 1 Overlay( DSDSPFFD : 768 )
+     d  WHIFPW                        4s 1 Overlay( DSDSPFFD : 771 )
+     d  WHRWID                        1a   Overlay( DSDSPFFD : 774 )
+     d  WHIDC                         1a   Overlay( DSDSPFFD : 775 )
+     d  WHDROW                        3s 0 Overlay( DSDSPFFD : 776 )
+     d  WHDCOL                        3s 0 Overlay( DSDSPFFD : 779 )
+     d  WHALI2                      258a   Overlay( DSDSPFFD : 782 )
+     d  WHALCH                        1a   Overlay( DSDSPFFD : 1040 )
+     d  WHNRML                        1a   Overlay( DSDSPFFD : 1041 )
+     d  WHJRF2                        3s 0 Overlay( DSDSPFFD : 1042 )
+     d  WHHDNCOL                      1a   Overlay( DSDSPFFD : 1045 )
+     d  WHRCTS                        1a   Overlay( DSDSPFFD : 1046 )
+
+
+      * DS to hold the field description (DSPFD)
+     d DSDSPFD         ds          5000
+     d  APRCEN                        1a   Overlay( DSDSPFD : 01 )
+     d  APRDAT                        6a   Overlay( DSDSPFD : 02 )
+     d  APRTIM                        6a   Overlay( DSDSPFD : 08 )
+     d  APFILE                       10a   Overlay( DSDSPFD : 14 )
+     d  APLIB                        10a   Overlay( DSDSPFD : 24 )
+     d  APFTYP                        1a   Overlay( DSDSPFD : 34 )
+     d  APFILA                        4a   Overlay( DSDSPFD : 35 )
+     d  APMXD                         3a   Overlay( DSDSPFD : 39 )
+     d  APFATR                        6a   Overlay( DSDSPFD : 42 )
+     d  APSYSN                        8a   Overlay( DSDSPFD : 48 )
+     d  APASP                         3p 0 Overlay( DSDSPFD : 56 )
+     d  APRES                         4a   Overlay( DSDSPFD : 58 )
+     d  APMANT                        1a   Overlay( DSDSPFD : 62 )
+     d  APUNIQ                        1a   Overlay( DSDSPFD : 63 )
+     d  APKEYO                        1a   Overlay( DSDSPFD : 64 )
+     d  APSELO                        1a   Overlay( DSDSPFD : 65 )
+     d  APACCP                        1a   Overlay( DSDSPFD : 66 )
+     d  APNSCO                        3p 0 Overlay( DSDSPFD : 67 )
+     d  APBOF                        10a   Overlay( DSDSPFD : 69 )
+     d  APBOL                        10a   Overlay( DSDSPFD : 79 )
+     d  APBOLF                       10a   Overlay( DSDSPFD : 89 )
+     d  APNKYF                        3p 0 Overlay( DSDSPFD : 99 )
+     d  APKEYF                       10a   Overlay( DSDSPFD : 101 )
+     d  APKSEQ                        1a   Overlay( DSDSPFD : 111 )
+     d  APKSIN                        1a   Overlay( DSDSPFD : 112 )
+     d  APKZD                         1a   Overlay( DSDSPFD : 113 )
+     d  APKASQ                        1a   Overlay( DSDSPFD : 114 )
+     d  APKEYN                        3p 0 Overlay( DSDSPFD : 115 )
+     d  APJOIN                        1a   Overlay( DSDSPFD : 117 )
+     d  APACPJ                        1a   Overlay( DSDSPFD : 118 )
+     d  APRIKY                        1a   Overlay( DSDSPFD : 119 )
+     d  APUUIV                       15p 0 Overlay( DSDSPFD : 120 )
+
+      * DS to hold the field description for Select/Omit values (DSPFD)
+     d DSDSPFD2        ds          5000
+     d  SORCEN                        1a   Overlay( DSDSPFD2 : 01 )
+     d  SORDAT                        6a   Overlay( DSDSPFD2 : 02 )
+     d  SORTIM                        6a   Overlay( DSDSPFD2 : 08 )
+     d  SOFILE                       10a   Overlay( DSDSPFD2 : 14 )
+     d  SOLIB                        10a   Overlay( DSDSPFD2 : 24 )
+     d  SOFTYP                        1a   Overlay( DSDSPFD2 : 34 )
+     d  SOFILA                        4a   Overlay( DSDSPFD2 : 35 )
+     d  SOMXD                         3a   Overlay( DSDSPFD2 : 39 )
+     d  SOFATR                        6a   Overlay( DSDSPFD2 : 42 )
+     d  SOSYSN                        8a   Overlay( DSDSPFD2 : 48 )
+     d  SOASP                         3p 0 Overlay( DSDSPFD2 : 56 )
+     d  SORES                         4a   Overlay( DSDSPFD2 : 58 )
+     d  SONRUL                        4p 0 Overlay( DSDSPFD2 : 62 )
+     d  SORFMT                       10a   Overlay( DSDSPFD2 : 65 )
+     d  SOFLD                        10a   Overlay( DSDSPFD2 : 75 )
+     d  SORULE                        1a   Overlay( DSDSPFD2 : 85 )
+     d  SOCOMP                        2a   Overlay( DSDSPFD2 : 86 )
+     d  SONVAL                        3a   Overlay( DSDSPFD2 : 88 )
+     d  SOVALL                        2p 0 Overlay( DSDSPFD2 : 90 )
+     d  SOVALU                       32a   Overlay( DSDSPFD2 : 92 )
+     d  SODYNS                        1a   Overlay( DSDSPFD2 : 124 )
+     d  SOFJVL                        3p 0 Overlay( DSDSPFD2 : 125 )
+     d  SOPJVL                        3p 0 Overlay( DSDSPFD2 : 127 )
+
+      * DS to hold the field description (DSPFFD)
+     d DSDSPDBR        ds          5000
+     d  WHRTYP                        1a   Overlay( DSDSPDBR : 01 )
+     d  WHRFI                        10a   Overlay( DSDSPDBR : 02 )
+     d  WHRLI                        10a   Overlay( DSDSPDBR : 12 )
+     d  WHRMB                        10a   Overlay( DSDSPDBR : 22 )
+     d  WHRRD                        10a   Overlay( DSDSPDBR : 32 )
+     d  WHNO                          5s 0 Overlay( DSDSPDBR : 42 )
+     d  WHDTM                        13a   Overlay( DSDSPDBR : 47 )
+     d  WHREFI                       10a   Overlay( DSDSPDBR : 60 )
+     d  WHRELI                       10a   Overlay( DSDSPDBR : 70 )
+     d  WHREMB                       10a   Overlay( DSDSPDBR : 80 )
+     d  WHTYPE                        1a   Overlay( DSDSPDBR : 90 )
+     d  WHJDIL                        2s 0 Overlay( DSDSPDBR : 91 )
+     d  WXJREF                        2s 0 Overlay( DSDSPDBR : 93 )
+     d  WXSYSN                        8a   Overlay( DSDSPDBR : 95 )
+     d  WHCTLN                       10a   Overlay( DSDSPDBR : 103 )
+     d  WHCSTN                      260a   Overlay( DSDSPDBR : 113 )
+
+     D FNC             S             80    Dim( 4 ) CtDATA PerRCD( 1 )           Funtion Keys
+     D S1              S              3S 0
+
+      **************************************************************************
+      * Parameter List / Key List
+      **************************************************************************
+
+     c     *Entry        Plist
+     c                   Parm                    PFNAME           10
+     c                   Parm                    PFLIB            10
+     c                   Parm                    DESCP            50
+     c                   Parm                    ERRFLG            1 0
+
+      **************************************************************************
+      **************************************************************************
+      **************************************************************************
+      *
+      * M A I N   R O U T I N E
+      * The Main Routine will handle all the
+      * process needed for the list of members
+      *
+      **************************************************************************
+      **************************************************************************
+      **************************************************************************
+      *
+     c                   ExSr      SrIntlz
+      *
+     c                   Eval      SAVPF = PFNAME
+     c                   Eval      SAVLIB = PFLIB
+     c                   ExSr      SrLoadKey
+      *
+     c                   Eval      TempFile = 'QTEMP/SHOWPF'
+     c                   Open      PGMFILE
+     c                   Read      PGMFILE       DSDSPFFD
+      * Header Details
+     c                   Eval      PFLIB   = WHLIB
+     c                   If        WHFTYP  = 'P'
+     c                   Eval      RECLBL  = 'Format . . . .'
+     c                   Eval      RECFMT  = WHNAME
+     c                   EndIf
+     c                   Eval      ATTRB   = WHFTYP + 'F'
+     c                   Eval      RFMTLEN = WHRLEN
+     c                   Eval      NUMFLDS = WHFLDN
+      * Fields Details
+     c                   DoU       %EOF( PGMFILE )
+
+     c                   Eval      FFDRRN = FFDRRN + 1
+
+     c                   Eval      FIELD  = WHFLDE
+     c                   Eval      FFDArr( FFDRRN ) = WHFLDE
+     c                   If        WHFLDD <> 0
+     c                   Eval      FLDLEN = WHFLDD
+     c                   Eval      FLDDPT = %Char( WHFLDP )
+     c                   Else
+     c                   Eval      FLDLEN = WHFLDB
+     c                   Eval      FLDDPT = *Blanks
+     c                   EndIf
+     c                   Eval      FLDPOS = WHFOBO
+     c                   Eval      FLDTYP = WHFLDT
+     c                   Eval      FLDTXT = WHFTXT
+     c                   Eval      FFDArrDsc( FFDRRN ) = WHFTXT
+     c                   If        DspKey = *On
+     c                   Z-Add     1             Idx
+     c     FIELD         LookUp    KeyFldArr(Idx)                         41
+     c                   If        *In41 = *On
+     c                   Eval      KeyInd = *On
+     c                   Eval      FLDNUM = KeyFldNum( Idx )
+     c                   Eval      FLDSEQ = KeyFldSeq( Idx )
+     c                   Else
+     c                   Eval      KeyInd = *Off
+     c                   Eval      FLDNUM = *Blanks
+     c                   Eval      FLDSEQ = *Blanks
+     c                   EndIf
+     c                   EndIf
+     c                   Write     DSPFFDSFL
+     c                   Read      PGMFILE       DSDSPFFD
+     c                   EndDo
+
+     c                   Close     PGMFILE
+
+     c                   If        WHFTYP = 'L'
+     c                   ExSr      SrSelOmt
+     c                   EndIf
+
+      * Display the File Field Description
+     c                   Z-Add     1             FFDRRN
+
+     c                   DoW       Exit = *Off
+
+      *
+     c                   Write     DSPFFDFTR
+     c                   ExFmt     DSPFFDCTL
+     c                   Eval      MSGFLD = '                                ' +
+     c                                      '                 ' +
+     c                                      '(C) COPYRIGHT SMGLIB. 2015.'
+
+     c                   If        Exit     = *On or
+     c                             Previous = *On
+     c                   Eval      Exit = *Off
+     c                   ExSr      SrEnd
+     c                   EndIf
+
+     c                   If        Update = *On
+     c                   ExSr      SrUpdate
+     c                   Iter
+     c                   EndIf
+
+     c                   If        Clear = *On
+     c                   ExSr      SrClear
+     c                   Iter
+     c                   EndIf
+
+     c                   If        KeySort = *On
+      * Clear the subfile
+     c                   Eval      SflClr1 = *On
+     c                   Write     DSPFFDCTL
+     c                   Eval      SflClr1 = *Off
+     c                   EndIf
+
+     c                   If        ObjDescpn = *On
+     c                   ExSr      SrObjDsc
+     c                   Iter
+     c                   EndIf
+
+     c                   If        Dsppfm = *On
+     c                   ExSr      SrDspPfm
+     c                   Iter
+     c                   EndIf
+
+     c                   If        MoreKeys = *On
+     c                   Select
+     c                   When      F1Fot1 = Fnc( 1 ) and
+     c                             F1Fot2 = Fnc( 2 )
+serg c                   Eval      F1Fot1 = Fnc( 3 )
+     c                   Eval      F1Fot2 = Fnc( 4 )
+     c                   Other
+     c                   Eval      F1Fot1 = Fnc( 1 )
+     c                   Eval      F1Fot2 = Fnc( 2 )
+     c                   EndSl
+     c                   Iter
+     c                   EndIf
+
+     c                   If        Logical = *On
+     c                   ExSr      SrLogical
+     c                   Iter
+     c                   EndIf
+
+     c                   If        Refresh = *On
+     c                   Iter
+     c                   EndIf
+
+     c                   If        RunQuery = *On
+     c                   ExSr      SrRunQry
+     c                   Iter
+     c                   EndIf
+
+     c                   Z-Add     1             FFDRRN
+     c                   If        SRCFLD <> *Blanks
+     c                   Z-Add     1             Idx
+     c                   Z-Add     0             S1
+      * Field Name
+     c     SRCFLD        LookUp    FFDArr(Idx)                            41
+     c                   If        *In41 = *On
+     c                   Z-Add     Idx           FFDRRN
+     c                   Else
+     c                   Eval      MSGFLD = 'Field not found.'
+     c                   EndIf
+     c                   EndIf
+
+     c                   EndDo
+
+
+      **************************************************************************
+      *    SrEnd - End Program
+      **************************************************************************
+     c     SrEnd         BegSr
+
+      * Delete temporary file
+     c                   Eval      CmdStr = 'DLTF FILE(QTEMP/SHOWKY)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+     c                   Eval      CmdStr = 'DLTF FILE(QTEMP/SHOWLF)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+     c                   Eval      CmdStr = 'DLTF FILE(QTEMP/SHOWSO)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+
+     c                   Return
+
+     c                   EndSr
+
+
+      **************************************************************************
+      *    SrIntlz - Initialize subroutine
+      **************************************************************************
+     c     SrIntlz       BegSr
+
+     c                   Eval      F1Fot1 = FNC( 1 )
+     c                   Eval      F1Fot2 = FNC( 2 )
+     c                   Z-Add     0             FFDRRN
+     c                   Clear                   FFDArr
+     c                   Eval      MSGFLD = '                                ' +
+     c                                      '                 ' +
+     c                                      '(C) COPYRIGHT SMGLIB. 2015.'
+
+      * Clear the subfile
+     c                   Eval      SflClr1 = *On
+     c                   Write     DSPFFDCTL
+     c                   Eval      SflClr1 = *Off
+
+     c                   EndSr
+
+      **************************************************************************
+      *    SrLoadKey - Get the keyfields
+      **************************************************************************
+     c     SrLoadKey     BegSr
+
+     c                   Clear                   KeyFldArr
+     c                   Z-Add     0             Ctr
+
+      * Delete temporary file
+     c                   Eval      CmdStr = 'DLTF FILE(QTEMP/SHOWKY)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+
+     c                   Eval      CmdStr = 'DSPFD FILE(' +
+     c                                      %Trim(SAVLIB) +  '/' +
+     c                                      %Trim(SAVPF) +  ') ' +
+     c                                      'TYPE(*ACCPTH) ' +
+     c                                      'OUTPUT(*OUTFILE) ' +
+     c                                      'OUTFILE(QTEMP/SHOWKY)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+
+      * Load key fields into subfile
+     c                   Eval      UnqKey = *Off
+     c                   Eval      DspKey = *Off
+     c                   Eval      TempFile = 'QTEMP/SHOWKY'
+     c                   Open      PGMFILE
+     c                   Read      PGMFILE       DSDSPFD
+     c                   If        APFATR = 'LF'
+     c                   Eval      RECLBL  = 'PF(REC FMT). .'
+     c                   Eval      RECFMT = %Trim(APBOF) + '(' +
+     c                                      %Trim(APBOLF) + ')'
+     c                   EndIf
+     c                   DoU       %EOF( PGMFILE )
+     c                   If        APKEYF <> *Blanks
+     c                   Eval      DspKey = *On
+     c                   If        APUNIQ = 'Y'
+     c                   Eval      UnqKey = *On
+     c                   EndIf
+     c                   Eval      Ctr = Ctr + 1
+     c                   Eval      KeyFldArr( Ctr ) = APKEYF
+     c                   Eval      KeyFldNum( Ctr ) = %Char( APKEYN )
+     c                   Eval      KeyFldSeq( Ctr ) = APKSEQ
+     c                   EndIf
+     c                   Read      PGMFILE       DSDSPFD
+     c                   EndDo
+
+     c                   Close     PGMFILE
+
+     c                   EndSr
+
+
+      **************************************************************************
+      *    SrSelOmt - Look for special/omit values
+      **************************************************************************
+     c     SrSelOmt      BegSr
+      *
+      * Delete temporary file
+     c                   Eval      CmdStr = 'DLTF FILE(QTEMP/SHOWSO)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+
+     c                   Eval      CmdStr = 'DSPFD FILE(' +
+     c                                      %Trim(PFLIB) +  '/' +
+     c                                      %Trim(PFNAME) +  ') ' +
+     c                                      'TYPE(*SELECT) ' +
+     c                                      'OUTPUT(*OUTFILE) ' +
+     c                                      'OUTFILE(QTEMP/SHOWSO)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+      *
+      * Load key fields into subfile
+     c                   Eval      KeyInd = *Off
+     c                   Eval      TempFile = 'QTEMP/SHOWSO'
+     c                   Open      PGMFILE
+     c                   Read      PGMFILE       DSDSPFD2
+     c                   If        Not %EOF( PGMFILE )
+     c                   If        SORULE <> *Blanks
+     c                   Eval      KeyInd = *On
+     c                   Eval      FFDRRN = FFDRRN + 1
+     c                   Eval      FIELD  = *Blanks
+     c                   Eval      FLDLEN = 0
+     c                   Eval      FLDDPT = *Blanks
+     c                   Eval      FLDPOS = 0
+     c                   Eval      FLDTYP = *Blanks
+     c                   Eval      FLDTXT = '---------- Select/Omit ----------'
+     c                   Write     DSPFFDSFL
+     c                   EndIf
+     c                   EndIf
+      * Fields Details
+     c                   DoU       %EOF( PGMFILE )
+     c                   Eval      FFDRRN = FFDRRN + 1
+     c                   Eval      FIELD  = SOFLD
+     c                   Eval      FLDLEN = 0
+     c                   Eval      FLDDPT = *Blanks
+     c                   Eval      FLDPOS = 0
+     c                   Eval      FLDTYP = *Blanks
+     c                   Select
+     c                   When      SORULE = 'S'
+     c                   Eval      SpFltr = 'Select'
+     c                   When      SORULE = 'O'
+     c                   Eval      SpFltr = 'Omit'
+     c                   When      SORULE = 'A'
+     c                   Eval      SpFltr = 'And'
+     c                   Other
+     c                   Eval      SpFltr = SORULE
+     c                   EndSl
+     c
+     c                   Eval      FLDTXT = %Trim( SpFltr ) + ' ' +
+     c                                      SOCOMP + ' ' +
+     c                                      SOVALU
+     c                   Eval      FLDNUM = *Blanks
+     c                   Eval      FLDSEQ = *Blanks
+     c                   Write     DSPFFDSFL
+     c                   Read      PGMFILE       DSDSPFD2
+     c                   EndDo
+      *
+     c                   Close     PGMFILE
+      *
+     c                   EndSr
+      *
+      *
+      **************************************************************************
+      *    SrObjDsc - Display Object Description
+      **************************************************************************
+     c     SrObjDsc      BegSr
+
+     c                   Eval      ObjDescpn = *Off
+     c                   Eval      CmdStr = 'DSPOBJD OBJ(' +
+     c                                      %Trim(PFLIB) +  '/' +
+     c                                      %Trim(PFNAME) +  ') ' +
+     c                                      'OBJTYPE(*FILE)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+
+     c                   EndSr
+      *
+      **************************************************************************
+      *    SrUpdate - Update Data
+      **************************************************************************
+     c     SrUpdate      BegSr
+
+     c                   Eval      Update = *Off
+     c                   Eval      CmdStr = 'UPDDTA FILE(' +
+     c                                      %Trim(PFLIB) +  '/' +
+     c                                      %Trim(PFNAME) +  ') '
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+     c                   EndSr
+
+      **************************************************************************
+      *    SrClear - Clear Data
+      **************************************************************************
+     c     SrClear       BegSr
+
+     c                   Eval      Clear = *Off
+     c                   Eval      CmdStr = 'CLRPFM FILE(' +
+     c                                      %Trim(PFNAME) +  ') '
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+     c                   Eval      MSGFLD = 'PF successfully cleared.'
+
+     c                   EndSr
+
+      **************************************************************************
+      *    SrkeySort - Sort Key Fields
+      **************************************************************************
+     c     SrKeySort     BegSr
+
+     c                   Z-Add     0             FFDRRN
+      * Clear the subfile
+     c                   Eval      SflClr1 = *On
+     c                   Write     DSPFFDCTL
+     c                   Eval      SflClr1 = *Off
+      * Load key fields into subfile
+     c                   Eval      TempFile = 'QTEMP/SHOWKY'
+     c                   Open      PGMFILE
+     c                   Read      PGMFILE       DSDSPFD
+     c                   If        APFATR = 'LF'
+     c                   Eval      RECLBL  = 'PF(REC FMT). .'
+     c                   Eval      RECFMT = %Trim(APBOF) + '(' +
+     c                                      %Trim(APBOLF) + ')'
+     c                   EndIf
+     c                   DoU       %EOF( PGMFILE )
+     c                   If        APKEYF <> *Blanks
+     c                   Eval      DspKey = *On
+     c                   If        APUNIQ = 'Y'
+     c                   Eval      UnqKey = *On
+     c                   EndIf
+     c                   Eval      FFDRRN = FFDRRN + 1
+      * Field Details
+     c                   If        APKEYF <> *Blanks
+     c                   Eval      FIELD = KeyFldArr( FFDRRN )
+     c                   EndIf
+      *
+     c                   EndIf
+     c                   Write     DSPFFDSFL
+     c                   Read      PGMFILE       DSDSPFD
+     c                   EndDo
+
+     c                   Close     PGMFILE
+
+     c                   EndSr
+
+
+      **************************************************************************
+      *    SrLogical - Get the logical files
+      **************************************************************************
+     c     SrLogical     BegSr
+
+     c                   Eval      Logical = *Off
+     c                   Z-Add     0             LFRRN
+     c                   Z-Add     0             LFCtr
+
+      * Delete temporary file
+     c                   Eval      CmdStr = 'DLTF FILE(QTEMP/SHOWLF)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+
+      * Clear the subfile
+     c                   Eval      SflClr2 = *On
+     c                   Write     DSPFFDLFC
+     c                   Eval      SflClr2 = *Off
+
+     c                   Eval      CmdStr = 'DSPDBR FILE(' +
+     c                                      %Trim(PFLIB) +  '/' +
+     c                                      %Trim(PFNAME) +  ') ' +
+     c                                      'OUTPUT(*OUTFILE) ' +
+     c                                      'OUTFILE(QTEMP/SHOWLF)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+
+      * Load the logical files related with the PF into an array
+     c                   Eval      TempFile = 'QTEMP/SHOWLF'
+     c                   Open      PGMFILE
+     c                   Read      PGMFILE       DSDSPDBR
+      * Validate for a Logical File
+     c                   If        WHRTYP = 'L'
+     c                   Eval      MSGFLD = 'Please use a Physical File name.'
+     c                   Close     PGMFILE
+     c                   LeaveSr
+     c                   EndIf
+      * Validate for non existing logical files
+     c                   If        WHNO = 0
+     c                   Eval      MSGFLD = 'No logical files defined.'
+     c                   Close     PGMFILE
+     c                   LeaveSr
+     c                   EndIf
+
+     c                   DoU       %EOF( PGMFILE )
+     c                   Eval      LFCtr = LFCtr + 1
+     c                   Eval      LFArr( LFCtr ) = WHREFI
+     c                   Read      PGMFILE       DSDSPDBR
+     c                   EndDo
+     c                   Z-Add     LFCtr         LFTot
+
+     c                   Close     PGMFILE
+
+      * Load the logical file and key fields in to the subfile
+     c                   Z-Add     0             LFCtr
+     c                   DoW       LFCtr < LFTot
+     c                   Eval      LFRRN = LFRRN + 1
+     c                   Eval      LFCtr = LFCtr + 1
+     c                   Eval      SAVPF = LFArr( LFCtr )
+     c                   Eval      LFInd = *On
+     c                   Eval      LFNAME = SAVPF
+     c                   ExSr      SrLoadKey
+     c                   Eval      LFInd = *Off
+     c                   Z-Add     0             Ctr
+     c                   Do        APNKYF
+     c                   Eval      Ctr = Ctr + 1
+     c                   Eval      LFKEYS = KeyFldArr( Ctr )
+     c                   Eval      LFSORT = KeyFldNum( Ctr )
+     c                   Eval      LFKEYN = KeyFldSeq( Ctr )
+     c                   Eval      LFDESC = *Blanks
+     c                   Z-Add     1             Idx
+     c     LFKEYS        LookUp    FFDArr(Idx)                            41
+     c                   If        *In41 = *On
+     c                   Eval      LFDESC = FFDArrDsc( Idx )
+     c                   Else
+     c                   Eval      LFDESC = *Blanks
+     c                   EndIf
+     c                   Write     DSPFFDLF
+     c                   Eval      LFRRN = LFRRN + 1
+     c                   Eval      LFNAME = *Blanks
+     c                   EndDo
+     c                   EndDo
+
+      * Display the logical file list
+     c                   Z-Add     1             LFRRN
+     c                   DoW       Previous = *Off
+     c                   Write     DSPFFDLFF
+     c                   ExFmt     DSPFFDLFC
+     c                   If        Previous = *On
+     c                   Leave
+     c                   EndIf
+     c                   EndDo
+
+     c                   Eval      Previous  = *Off
+
+     c                   EndSr
+
+
+      **************************************************************************
+      *    SrRunQry - Runqry the file
+      **************************************************************************
+     c     SrRunQry      BegSr
+
+     c                   Eval      RunQuery = *Off
+
+     c                   Eval      CmdStr = 'RUNQRY *N (' +
+     c                                      %Trim(PFLIB) +  '/' +
+     c                                      %Trim(PFNAME) +  ') ' +
+     c                                      'RCDSLT(*YES)'
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+
+     c                   EndSr
+      **************************************************************************
+      *    SrDspPfm - Display Physical File Member
+      **************************************************************************
+     c     SrDspPfm      BegSr
+
+     c                   Eval      DspPfm = *Off
+     c                   Eval      CmdStr = 'DSPPFM File(' +
+     c                                      %Trim(PFLIB) +  '/' +
+     c                                      %Trim(PFNAME) +  ') '
+     c                   Eval      CmdLen = %Len( CmdStr )
+     c                   Callp(e)  CmdLine( CmdStr : CmdLen )
+
+     c                   EndSr
+** FNC (FUNCTION)
+F3=Exit       F4=Logical Files  F6=Update Data  F7=Clear Data
+F8=Key Field  F11=Run Query     F12=Cancel      F13=Description  F24=More...
+F15=Display PF Member
+                                                                 F24=More...

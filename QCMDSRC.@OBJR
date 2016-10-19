@@ -1,0 +1,532 @@
+      //---------------------------------------------------------
+/* @O // OBJR - Work with Objects   */
+/* Au // Author: Sergio Galvez      */
+      //---------------------------------------------------------
+
+      /Define ProgramHeaderSpecs
+      /COPY QCMDSRC,CMDREPO
+      /UnDefine ProgramHeaderSpecs
+
+     F@OBJD     CF   E             WORKSTN SFILE( SBFDTA1: RRN ) INFDS( INFDS )
+     F                                                           INDDS( IND )
+
+      //---------------------------------------------------------
+     D SaveOriginal    S                   LIKE( QWCRTVCADS )
+     D dStamp          S              8A
+     D KeyFld          S             10A   INZ( 'OBJSIZE' )
+     D SequenceText    S             10A   INZ( 'Descending' )
+     D SortArry        S            101A   DIM( 9999 )
+     D LengthOfBuffer  S             10I 0
+     D LoadedElements  S             10I 0
+     D SequenceValue   S             10I 0 INZ( 2 )
+     D DeleteCount     S              5U 0
+     D ForCount2       S              3U 0
+     D NumberOfRecs    S              5U 0
+     D RRNsave         S              5U 0
+
+      //---------------------------------------------------------
+      /Define ApiErrDS
+      /Define ApiStampDS
+      /Define Constants
+      /Define Infds
+      /Define Dspatr
+      /Define FunctionKeys
+      /Define Ind
+      /Define Qlgsort
+      /Define Quslobj
+      /Define Qwccvtdt
+      /Define Sds
+      /Define UserSpaceHeaderDS
+      /Define f_AddSortKey
+      /Define f_BuildString
+      /Define f_RunOptionObject
+      /Define f_GetQual
+      /Define f_Quscrtus
+      /Define f_RmvSflMsg
+      /Define f_SndCompMsg
+      /Define f_SndSflMsg
+      /Define f_SndStatMsg
+      /Define f_GetFileUtil
+      /Define f_GetDayName
+      /COPY QCMDSRC,CMDREPO
+
+      //---------------------------------------------------------
+      * Change job APIs
+     D BinaryKeysArry  ds                  qualified
+     D  Purge1604                    10i 0 inz(1604)
+     D  Runpty1802                   10i 0 inz(1802)
+     D  TimeSlice2002                10i 0 inz(2002)
+
+     D QwcrtvcaDS      ds           150    qualified
+     D  AttrReturnCnt                10i 0 inz
+
+      // ds to extract retrieved attributes from API call
+     D rtvc0100DS      ds                  qualified based(rtvc0100Ptr)
+     D  Length                       10i 0
+     D  Key                          10i 0
+     D  DataType                      1a
+     D  Reserved                      3a
+     D  LenOfData                    10i 0
+     D  Data                         30a
+
+     D Alpha2NumDS     ds                  qualified
+     D  Numeric                      10i 0 inz
+
+      // ScreenFieldDS -  load screen fields into sort array.
+     D ScreenFieldDS   ds                  inz
+     D  ObjName
+     D  ObjType
+     D  ObjAttr
+     D  ObjText
+     D  ObjSize
+     D  CreateDate
+     D  LastUsed
+     D  DaysUsed
+     D  hidRIsfl
+     D  hidNDsfl
+     D  HidSortcrt                                                              C YY MM DD for sort
+     D  HidSortlst                                                              C YY MM DD for sort
+     D  HidOtype                                                                Full object type
+     D  HidOlib                                                                 Full object type
+
+      //--*CALL PROTOTYPES---------------------------------------
+     D Qwcrtvca        PR                  extpgm('QWCRTVCA')                   retrieve current atr
+     D                              150a                                        receiver
+     D                               10i 0 const                                receiver length
+     D                                8a   const                                api format
+     D                               10i 0 const                                number of keys
+     D                               12a                                        list of keys
+     Db                                    like(ApiErrDS)
+     D Qwtchgjb        PR                  extpgm('QWTCHGJB')                   change current job
+     D                               26a   const                                job name *=current
+     D                               16a   const                                internal identifier
+     D                                8a   const                                api format
+     D                              150a                                        receiver
+     Db                                    like(ApiErrDS)
+
+      //--*ENTRY PARMS-------------------------------------------
+     D p_@OBJR         PR                  extpgm('@OBJR')
+     D                               20a
+     D                               10a
+     D                               10a
+     D                               10a
+     D                                4a
+     D p_@OBJR         PI
+     D  p_ObjQual                    20a
+     D  p_ObjTyp                     10a
+     D  p_Objatr                     10a
+     D  p_CrtUsr                     10a
+     D  p_AllowOption                 4a
+      //---------------------------------------------------------
+      /free
+       IsFirstTime = *on;
+       f_SndStatMsg(f_BuildString('Retrieving & type & - in progress':
+       f_GetQual(p_ObjQual): p_ObjTyp));
+       aNotUsed = ND;
+       evalr scDow = %trimr(f_GetDayName());
+
+       exsr srDiscretelyBumpJobPriorities;
+       DbUtility = '6=' + f_GetFileUtil();
+
+ 1b    if p_CrtUsr <> '*ALL     ';
+          aShowUsr1 = %bitor(Green: UL);
+          aShowUsr2 = %bitor(White: RI);
+ 1x    else;
+          aShowUsr1 = ND;
+          aShowUsr2 = ND;
+ 1e    endif;
+
+ 1b    if p_AllowOption = '*NO ';
+          aOptionSfl = %bitor(ND: PR);
+          aOptions = ND;
+ 1x    else;
+          aOptionSfl = %bitor(Green: UL);
+          aOptions = Blue;
+ 1e    endif;
+
+       // Create user space/retrieve pointer to user space.
+       GenericHeaderPtr = f_Quscrtus(UserSpaceName);
+
+       //---------------------------------------------------------
+       // Setup looping subroutine so user can refresh screen
+ 1b    dou  IsExitPgm;
+          exsr srRefreshScreen;
+ 1e    enddo;
+       f_SndCompMsg(f_BuildString('@OBJD for & type & - completed':
+       f_GetQual(p_ObjQual):
+       p_ObjTyp));
+       *inlr = *on;
+       return;
+
+       //---------------------------------------------------------
+       // Call API to load object name list.
+       begsr srRefreshScreen;
+       Ind.sfldsp = *off;
+       Ind.sfldspctl = *off;
+       aRIsfl = Green;
+       aNDsfl = Green;
+       aNotUsed = ND;
+       write SBFCTL1;
+       rrn = 0;
+
+       HeaderObj = %subst(p_ObjQual: 1: 10);
+       HeaderLib = %subst(p_ObjQual: 11: 10);
+
+       callp QUSLOBJ(
+             UserSpaceName:
+             'OBJL0700':
+             p_ObjQual:
+             p_ObjTyp:
+             ApiErrDS);
+
+       // change job back to original run priority
+ 1b    if IsFirstTime;
+          IsFirstTime = *off;
+          callp QWTCHGJB(
+                '* ':
+                '   ':
+                'JOBC0100':
+                SaveOriginal:
+                ApiErrDS);
+ 1e    endif;
+
+       // Process data from user space by moving QuslobjPtr pointer.
+       LoadedElements = 0;
+       QuslobjPtr = GenericHeaderPtr + GenericHeader.OffSetToList;
+ 1b    for ForCount = 1 to GenericHeader.ListEntryCount;
+
+          // only load objects that match selected attributes
+ 2b       if p_CrtUsr = '*ALL     '
+             or p_CrtUsr = QuslobjDS.CreatedByUser;
+
+ 3b          if QuslobjDS.ExtendedAttr = p_Objatr
+                or p_Objatr = '*ALL   ';
+                aRIsfl = Green;
+                aNDsfl = Green;
+                ObjName = QuslobjDS.ObjNam;
+                HidOlib = QuslobjDS.ObjLib;
+                ObjType = QuslobjDS.ObjTyp;
+                HidOtype = QuslobjDS.ObjTyp;
+                ObjAttr = QuslobjDS.ExtendedAttr;
+                ObjText = QuslobjDS.ObjText;
+
+                // Decode Date-Time_Stamp.
+                dstamp = QuslobjDS.CreateStamp;
+                callp QWCCVTDT(
+                      '*DTS    ':
+                      dstamp    :
+                      '*MDY    ':
+                      ApiStampDS:
+                      ApiErrDS);
+                HidSortcrt = ApiStampDS.Century +
+                ApiStampDS.YY + ApiStampDS.MMDD;
+                CreateDate = %dec(ApiStampDS.MMDD + ApiStampDS.YY: 6: 0);
+
+ 4b             if QuslobjDS.NumDaysUsed > 9999;
+                   DaysUsed = 9999;
+ 4x             else;
+                   DaysUsed = QuslobjDS.NumDaysUsed;
+ 4e             endif;
+
+ 4b             if QuslobjDS.NumDaysUsed > 0;
+                   dstamp = QuslobjDS.LastUseStamp;
+                   callp QWCCVTDT(
+                         '*DTS    ':
+                         dstamp    :
+                         '*MDY    ':
+                         ApiStampDS:
+                         ApiErrDS);
+                   HidSortlst = ApiStampDS.Century +
+                   ApiStampDS.YY + ApiStampDS.MMDD;
+                   LastUsed = %dec(ApiStampDS.MMDD + ApiStampDS.YY: 6: 0);
+ 4x             else;
+                   aRIsfl = %bitor(Green: RI);
+                   aNotUsed = %bitor(Green: RI);
+                   aNDsfl = ND;
+                   LastUsed = 0;
+                   clear HidSortlst;
+ 4e             endif;
+
+                ObjSize =
+                (QuslobjDS.ObjSize * QuslobjDS.MultiplySize)/1024;
+ 4b             if ObjAttr = 'DDMF';
+                   aRIsfl = Green;
+ 4e             endif;
+
+                hidRIsfl = aRIsfl;
+                hidNDsfl = aNDsfl;
+                rrn += 1;
+                LoadedElements += 1;
+                SortArry(LoadedElements) = ScreenFieldDS;
+ 4b             if LoadedElements = 9999;
+ 1v                leave;
+ 4e             endif;
+
+ 3e          endif;
+ 2e       endif;
+          QuslobjPtr += GenericHeader.ListEntrySize;
+ 1e    endfor;
+       RRNsave = rrn;
+
+       // Allow user to make selection from subfile.
+       exsr srLoadFromSorter;
+ 1b    if IsRefresh <> *on
+          or SflRcdNbr <= 0;
+          SflRcdNbr = 1;
+ 1e    endif;
+
+ 1b    dow not (InfdsFkey = f03);
+          Ind.sfldsp = (rrn > 0);
+          Ind.sfldspctl = *on;
+ 2b       if not Ind.sfldsp;
+             f_RmvSflMsg(ProgId);
+             f_SndSflMsg(ProgId:
+             'No objects matching your selection were found.');
+ 2e       endif;
+          write MSGCTL;
+          write SFOOTER1;
+          exfmt SBFCTL1;
+ 2b       if InfdsFkey = f03
+             or InfdsFkey = f12;
+             IsExitPgm = *on;
+ LV          leavesr;
+ 2e       endif;
+          f_RmvSflMsg(ProgId);
+
+          // refresh
+ 2b       if InfdsFkey = f05;
+             IsRefresh = *on;
+ LV          leavesr;
+ 2e       endif;
+
+          // user selected new library or object
+ 2b       if not(HeaderObj = %subst(p_ObjQual: 1: 10) and
+             HeaderLib = %subst(p_ObjQual: 11: 10));
+             %subst(p_ObjQual: 1: 10) = HeaderObj;
+             %subst(p_ObjQual: 11: 10) = HeaderLib;
+ LV          leavesr;
+ 2e       endif;
+
+
+ 2b       if SflRecNbr > 0;
+             SflRcdNbr = SflRecNbr;
+ 2x       else;
+             SflRcdNbr = 1;
+ 2e       endif;
+
+          // Selected to resort subfile
+ 2b       if InfdsFkey = f13
+             or InfdsFkey = f14;
+ 3b          if InfdsFkey = f13;
+                SequenceText = 'Ascending';
+                SequenceValue = 1;
+ 3e          endif;
+ 3b          if InfdsFkey = f14;
+                SequenceText = 'Descending';
+                SequenceValue = 2;
+ 3e          endif;
+
+             KeyFld = curfld;
+             exsr srSortAndReload;
+             SflRcdNbr = 1;
+ 1i          iter;
+ 2e       endif;
+
+          // Find record in subfile user has selected.
+          DeleteCount = 0;
+          readc SBFDTA1;
+ 2b       dow not %eof;
+ 3b          if sbfOption > 0;
+                f_RunOptionObject(
+                sbfOption:
+                ObjName:
+                HidOlib:
+                HidOtype:
+                ProgId);
+
+                // Update subfile to reflect selected changes.
+ 4b             if sbfOption = 4;
+                   DeleteCount += 1;
+ 4x             else;
+                   sbfOption = 0;
+                   aRIsfl = hidRIsfl;
+                   aNDsfl = hidNDsfl;
+                   SflRcdNbr = rrn;
+                   update SBFDTA1;
+ 4e             endif;
+ 3e          endif;
+             readc SBFDTA1;
+ 2e       enddo;
+ 2b       if DeleteCount > 0;
+             exsr srSortAndReload;
+             DeleteCount = 0;
+ 2e       endif;
+ 1e    enddo;
+       endsr;
+
+       //---------------------------------------------------------
+       // Read subfile and load records into sorting array.
+       begsr srSortAndReload;
+       NumberOfRecs = RRNsave;
+
+ 1b    if DeleteCount > 0;
+          RRNsave -= DeleteCount;
+ 2b       if SflRcdNbr > RRNsave;
+             SflRcdNbr = RRNsave;
+ 2e       endif;
+ 1e    endif;
+
+       LoadedElements = 0;
+ 1b    for rrn = 1 to NumberOfRecs;
+          chain rrn SBFDTA1;
+ 2b       if sbfOption <> 4;  //DELETE OPTION
+             LoadedElements += 1;
+             SortArry(LoadedElements) = ScreenFieldDS;
+ 2e       endif;
+ 1e    endfor;
+       exsr srLoadFromSorter;
+       rrn = RRNsave;
+       endsr;
+
+       //---------------------------------------------------------
+       // Sort array and load back into subfile.
+       begsr srLoadFromSorter;
+       Ind.sfldsp = *off;
+       Ind.sfldspctl = *off;
+       aRIsfl = Green;
+       aNDsfl = Green;
+       write SBFCTL1;
+       rrn = 0;
+
+       qlgSortDS = %subst(qlgSortDS: 1: 80);  //drop off keys
+       qlgsortDS.RecordLength = %size(SortArry);
+       qlgsortDS.RecordCount = LoadedElements;
+ 1b    if KeyFld = 'OBJSIZE ';
+          qlgsortDS.NumOfKeys = 2;
+          qlgsortDS = %trimr(qlgsortDS) +
+          f_AddSortKey(41: 9: 2: SequenceValue) +
+          f_AddSortKey(1: 10);
+          f_SndSflMsg(ProgId: 'Sort ' + %trimr(SequenceText) +
+          ' by Size.');
+ 1x    elseif KeyFld = 'OBJNAME  ';
+          qlgsortDS.NumOfKeys = 2;
+          qlgsortDS = %trimr(qlgsortDS) +
+          f_AddSortKey(1: 10: 6: SequenceValue) +
+          f_AddSortKey(82: 10);
+          f_SndSflMsg(ProgId: 'Sort ' + %trimr(SequenceText) +
+          ' by Object Name.');
+ 1x    elseif KeyFld = 'OBJTYPE ';
+          qlgsortDS.NumOfKeys = 2;
+          qlgsortDS = %trimr(qlgsortDS) +
+          f_AddSortKey(82: 10: 6: SequenceValue) +
+          f_AddSortKey(1: 10);
+          f_SndSflMsg(ProgId: 'Sort ' + %trimr(SequenceText) +
+          ' by Object Type.');
+ 1x    elseif KeyFld = 'OBJATTR';
+          qlgsortDS.NumOfKeys = 2;
+          qlgsortDS = %trimr(qlgsortDS) +
+          f_AddSortKey(18: 4: 6: SequenceValue) +
+          f_AddSortKey(1: 10);
+          f_SndSflMsg(ProgId: 'Sort ' + %trimr(SequenceText) +
+          ' by Attribute.');
+ 1x    elseif KeyFld = 'OBJTEXT ';
+          qlgsortDS.NumOfKeys = 1;
+          qlgsortDS = %trimr(qlgsortDS) +
+          f_AddSortKey(22: 19: 6: SequenceValue);
+          f_SndSflMsg(ProgId: 'Sort ' + %trimr(SequenceText) +
+          ' by Text.');
+ 1x    elseif KeyFld = 'CREATEDATE';
+          qlgsortDS.NumOfKeys = 2;
+          qlgsortDS = %trimr(qlgsortDS) +
+          f_AddSortKey(68: 7: 6: SequenceValue) +
+          f_AddSortKey(1: 10);
+          f_SndSflMsg(ProgId: 'Sort ' + %trimr(SequenceText) +
+          ' by Created Date.');
+ 1x    elseif KeyFld = 'LASTUSED';
+          qlgsortDS.NumOfKeys = 2;
+          qlgsortDS = %trimr(qlgsortDS) +
+          f_AddSortKey(75: 7: 6: SequenceValue) +
+          f_AddSortKey(1: 10);
+          f_SndSflMsg(ProgId: 'Sort ' + %trimr(SequenceText) +
+          ' by Last Used Date.');
+ 1x    elseif KeyFld = 'DAYSUSED ';
+          qlgsortDS.NumOfKeys = 2;
+          qlgsortDS = %trimr(qlgsortDS) +
+          f_AddSortKey(62: 4: 2: SequenceValue) +
+          f_AddSortKey(1: 10);
+          f_SndSflMsg(ProgId: 'Sort ' + %trimr(SequenceText) +
+          ' by Number of Times Used.');
+ 1e    endif;
+
+       qlgsortDS.BlockLength = %len(%trimr(qlgsortDS));
+       LengthOfBuffer = LoadedElements * %size(SortArry);
+       callp QLGSORT(
+             qlgsortDS:
+             SortArry:
+             SortArry:
+             LengthOfBuffer:
+             LengthOfBuffer:
+             ApiErrDS);
+
+ 1b    if LoadedElements >= 9999;
+          f_RmvSflMsg(ProgId);
+          f_SndSflMsg(ProgId: '9999+ objects returned. Narrow your search.');
+          LoadedElements = 9999;
+ 1e    endif;
+
+ 1b    for aa = 1 to LoadedElements;
+          ScreenFieldDS = SortArry(aa);
+          aRIsfl = hidRIsfl;
+          aNDsfl = hidNDsfl;
+          sbfOption = 0;
+          rrn += 1;
+          write SBFDTA1;
+ 1e    endfor;
+       endsr;
+
+       //---------------------------------------------------------
+       begsr srDiscretelyBumpJobPriorities;
+       // retrieve job values
+       callp QWCRTVCA(
+             QwcrtvcaDS:
+             %len(QwcrtvcaDS):
+             'RTVC0100':
+             3:
+             BinaryKeysArry:
+             ApiErrDS);
+
+       //---------------------------------------------------------
+       //  Trick is to first save original values then modify variable with our new values
+       //  so I can easily pass entire structure to change job API.
+       //  Lower Runpty by 1.
+       //  Set purge to *NO.
+       //  Add 500 to timeslice.
+       SaveOriginal = QwcrtvcaDS;
+       rtvc0100Ptr = %addr(QwcrtvcaDS) + 4;
+
+ 1b    for ForCount2 = 1 to QwcrtvcaDS.AttrReturnCnt;
+ 2b       if rtvc0100DS.Key = BinaryKeysArry.Purge1604;
+ 3b          if %subst(rtvc0100DS.Data: 1: rtvc0100DS.LenOfData) = '*YES';
+                %subst(rtvc0100DS.Data: 1: rtvc0100DS.LenOfData) = '*NO ';
+ 3e          endif;
+ 2x       elseif rtvc0100DS.Key = BinaryKeysArry.Runpty1802;
+             Alpha2NumDS = rtvc0100DS.Data;
+ 3b          if Alpha2NumDS.Numeric > 1;
+                Alpha2NumDS.Numeric -= 1;
+                %subst(rtvc0100DS.Data: 1: 4) = Alpha2NumDS;
+ 3e          endif;
+ 2x       elseif rtvc0100DS.Key = BinaryKeysArry.TimeSlice2002;
+             Alpha2NumDS = rtvc0100DS.Data;
+             Alpha2NumDS.Numeric += 500;
+             %subst(rtvc0100DS.Data: 1: 4) = Alpha2NumDS;
+ 2e       endif;
+          rtvc0100Ptr += rtvc0100DS.Length;
+ 1e    endfor;
+       // change job to new run values
+       callp QWTCHGJB(
+             '* ':
+             '   ':
+             'JOBC0100':
+             QwcrtvcaDS:
+             ApiErrDS);
+       endsr;

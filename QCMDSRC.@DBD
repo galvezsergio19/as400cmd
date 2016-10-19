@@ -1,0 +1,137 @@
+     A* DBD - DISPLAY FILE USED FOR THE SHOW UTILITY.
+     A* DEVELOPER: Sergio Galvez
+     A*
+     A                                      DSPSIZ( 24 80 *DS3 )
+     A                                      INDARA
+     A          R DSPFFDSFL                 SFL
+     A            FIELD         10A  O  8  3
+     A N31                                  COLOR( GRN )
+     A  31                                  COLOR( PNK )
+     A            FLDLEN         5Y 0O  8 15EDTCDE( Z )
+     A            FLDDPT         2A  O  8 23
+     A            FLDPOS         5Y 0O  8 27EDTCDE( Z )
+     A            FLDTYP         1A  O  8 21
+     A            FLDTXT        40A  O  8 34
+     A            FLDNUM         1A  O  8 76
+     A            FLDSEQ         1A  O  8 78
+     A          R DSPFFDCTL                 SFLCTL( DSPFFDSFL )
+     A                                      SFLSIZ( 0015 )
+     A                                      SFLPAG( 0014 )
+     A                                      CF03( 03 'EXIT'        )
+     A                                      CF04( 04 'LOGICAL'     )
+     A                                      CF05( 05 'REFRESH'     )
+     A                                      CF06( 06 'UPDATE DATA' )
+     A                                      CF07( 07 'CLEAR DATA'  )
+     A                                      CF08( 08 'COPY FILE'   )
+     A                                      CF11( 11 'RUNQRY'      )
+     A                                      CF12( 12 'PREVIOUS'    )
+     A                                      CF13( 13 'DSPOBJD'     )
+     A                                      CF24( 24 'MORE KEYS'   )
+     A                                      CF15( 15 'DSPPFM'      )
+     A                                      OVERLAY
+     A N20                                  SFLDSP
+     A N20                                  SFLDSPCTL
+     A  20                                  SFLCLR
+     A N20                                  SFLEND
+     A            FFDRRN         4S 0H      SFLRCDNBR( CURSOR *TOP )
+     A                                  1 26'DISPLAY FILE FIELD DESCRIPTION'
+     A                                      COLOR( WHT )
+     A                                  2  3'File . . . . .'
+     A                                      COLOR( WHT )
+     A            PFNAME        10A  O  2 19
+     A                                  2 42'Attribute. . . . . . .'
+     A                                      COLOR( WHT )
+     A            ATTRB          2A  O  2 66
+     A                                  3  5'Library  . .'
+     A                                      COLOR( WHT )
+     A            PFLIB         10A  O  3 19
+     A                                  3 42'Record Format Length .'
+     A                                      COLOR( WHT )
+     A            RFMTLEN        5Y 0O  3 66EDTCDE( Z )
+     A            RECLBL        14A  O  4  3COLOR( WHT )
+     A            RECFMT        22A  O  4 19
+     A                                  4 42'Number of Fields . . .'
+     A                                      COLOR( WHT )
+     A            NUMFLDS        5Y 0O  4 66EDTCDE( Z )
+     A                                  5  3'Description. .'
+     A                                      COLOR( WHT )
+     A            DESCP         50A  O  5 19
+     A                                  7  3'Field      '
+     A                                      DSPATR( UL )
+     A                                      COLOR( WHT )
+     A                                  7 15'Lenght/Typ'
+     A                                      DSPATR( UL )
+     A                                      COLOR( WHT )
+     A                                  7 28'Pos  '
+     A                                      DSPATR( UL )
+     A                                      COLOR( WHT )
+     A                                  7 34'Text                              -
+     A                                             '
+     A                                      DSPATR( UL )
+     A                                      COLOR( WHT )
+     A                                  7 76'Key'
+     A                                      COLOR( WHT )
+     A N34                                  DSPATR( ND )
+     A                                  6  3'Search . . . .'
+     A                                      COLOR( WHT )
+     A            SRCFLD        10A  B  6 19
+     A                                  6 73'Unique'
+     A                                      COLOR( YLW )
+     A N33                                  DSPATR( ND )
+     A          R DSPFFDFTR
+     A                                      OVERLAY
+     A            F1FOT1        76A  O 22  3
+     A                                      COLOR( BLU )
+     A            F1FOT2        76A  O 23  3
+     A                                      COLOR( BLU )
+     A            MSGFLD        76A  O 24  3COLOR( WHT )
+     A          R DSPFFDLF                  SFL
+     A            LFNAME        10A  O  4  3
+     A            LFKEYS        10A  O  4 15
+     A            LFKEYN         1A  O  4 27
+     A            LFSORT         1A  O  4 30
+     A            LFDESC        45A  O  4 33
+     A          R DSPFFDLFC                 SFLCTL( DSPFFDLF )
+     A                                      SFLSIZ( 0019 )
+     A                                      SFLPAG( 0018 )
+     A                                      CF12( 12 'PREVIOUS' )
+     A                                      OVERLAY
+     A N21                                  SFLDSP
+     A N21                                  SFLDSPCTL
+     A  21                                  SFLCLR
+     A N21                                  SFLEND
+     A            LFRRN          4S 0H      SFLRCDNBR( CURSOR )
+     A                                  1 34'LOGICAL FILES'
+     A                                      COLOR( WHT )
+     A                                  3  3'FILENAME'
+     A                                      COLOR( BLU )
+     A                                  3 15'KEYS'
+     A                                      COLOR( BLU )
+     A                                  3 27'Sort'
+     A                                      COLOR( BLU )
+     A                                  3 33'Description'
+     A                                      COLOR( BLU )
+     A          R DSPFFDLFF
+     A                                      OVERLAY
+     A                                 23  3'F12=Previous'
+     A                                      COLOR( BLU )
+     A            MSGFLD        76A  O 24  3COLOR( WHT )
+     A**************************************************************************
+     A* WINDOW KEY FIELD (F8)
+     A**************************************************************************
+     A          R WINDTA4                   SFL
+     A            SOTYPE         7A  O  2  3
+     A            SOFLD         10A  O  2 11
+     A            SOCOMP         2A  O  2 22
+     A            SOVALU        32A  O  2 25
+     A          R WINCTL4                   SFLCTL( WINDTA4 ) OVERLAY
+     A  61                                  SFLDSP
+     A  62                                  SFLDSPCTL
+     A N61                                  SFLCLR
+     A N64                                  SFLEND( *MORE )
+     A                                      SFLPAG( 09 ) SFLSIZ( 18 )
+     A                                      WINDOW( 5 2 12 61 *NOMSGLIN )
+     A                                      WDWTITLE((*TEXT 'Select / Omit Stat-
+     A                                      ements') (*COLOR WHT) (*DSPATR HI))
+     A          R WINFOOT4                  WINDOW( WINCTL4 ) OVERLAY
+     A                                 12  3'F2=Previous' COLOR( BLU )

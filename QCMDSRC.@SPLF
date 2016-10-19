@@ -1,0 +1,3 @@
+/* @SPLF - Display Last Spool File     */
+/* Author: Sergio Galvez               */
+             CMD        PROMPT('Display Last Spool File')

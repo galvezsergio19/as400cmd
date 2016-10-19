@@ -1,0 +1,14 @@
+/* @DB - Utility to display the mapping of database files  */
+/* Author: Sergio Galvez                                   */
+
+             CMD        PROMPT( 'Database Mapper' )
+             PARM       KWD( PFname ) TYPE( OBJECT ) MIN( 1 ) PROMPT( 'File Name' )
+ OBJECT:     QUAL       TYPE( *GENERIC ) LEN( 10 ) MIN( 1 )
+             QUAL       TYPE( *NAME ) LEN( 10 ) DFT( *LIBL ) SPCVAL( ( *LIBL ) ) +
+                        MIN( 0 ) PROMPT( 'Library' )
+
+             PARM       KWD( MODE ) TYPE( *CHAR ) LEN( 1 ) RSTD( *YES ) +
+                        DFT( 1 ) VALUES( '1' '2' ) MIN( 0 ) +
+                        CHOICE( '1:Db Relations 2:Copy File' ) +
+                        PROMPT( 'Mode Select' )
+

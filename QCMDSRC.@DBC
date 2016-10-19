@@ -1,0 +1,67 @@
+/* DBC - Utility to display the mapping of database files   */
+/* Author: Sergio Galvez                                    */
+
+             PGM        PARM( &PFNAME &MODE )
+
+/* Variable Declaration */
+
+             DCL        VAR( &PFNAME ) TYPE( *CHAR ) LEN( 20 )
+             DCL        VAR( &FILNME ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &LIBNME ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &OBJATR ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &DESCPN ) TYPE( *CHAR ) LEN( 50 )
+             DCL        VAR( &COUNTR ) TYPE( *DEC  ) LEN( 10 ) VALUE( 0 )
+             DCL        VAR( &STRING ) TYPE( *CHAR ) LEN( 10 ) VALUE( ' ' )
+             DCL        VAR( &MODE   ) TYPE( *CHAR ) LEN( 01 )
+
+/* Capture database name and library */
+
+             CHGVAR     VAR( &FILNME ) VALUE( %SST( &PFNAME 01 10 ) )
+             CHGVAR     VAR( &LIBNME ) VALUE( %SST( &PFNAME 11 10 ) )
+
+             IF         COND(&MODE = '2') THEN(GOTO CMDLBL(CPYF))
+
+/* Generic Name exists */
+
+             DOWHILE    COND( &COUNTR *NE 10 )
+             CHGVAR     VAR( &COUNTR ) VALUE( &COUNTR + 1 )
+             CHGVAR     VAR( &STRING ) VALUE( %SST( &PFNAME &COUNTR 1 ) )
+             IF         COND( &STRING = '*' ) THEN( DO )
+             WRKOBJ     OBJ( &FILNME )
+             GOTO       CMDLBL( END )
+             ENDDO
+             ENDDO
+
+/* Display error message if not existing */
+
+             CHKOBJ     OBJ( &LIBNME/&FILNME ) OBJTYPE( *FILE )
+             MONMSG     MSGID( CPF0000 ) EXEC( DO )
+                        SNDPGMMSG  MSG( 'OBJECT NOT FOUND IN LIBRARY LIST.' ) MSGTYPE( *INFO )
+             GOTO       CMDLBL( END )
+             ENDDO
+
+/* Retrieve object properties */
+
+             RTVOBJD    OBJ( &LIBNME/&FILNME ) OBJTYPE( *FILE ) OBJATR( &OBJATR ) TEXT( &DESCPN )
+
+/* Check if object is Database File */
+
+             IF         COND( &OBJATR *NE 'PF' *AND &OBJATR *NE 'LF' ) THEN( DO )
+             SNDPGMMSG  MSG( 'OBJECT IS NOT A DATABASE FILE.' ) MSGTYPE( *INFO )
+             GOTO       CMDLBL( END )
+             ENDDO
+
+/* Output the database file */
+
+             DSPFFD     FILE( &LIBNME/&FILNME ) OUTPUT( *OUTFILE ) OUTFILE( QTEMP/SHOWPF )
+             CALL       PGM( @DBR ) PARM( &FILNME &LIBNME &DESCPN )
+             DLTF       FILE( QTEMP/SHOWPF )
+
+/* Copy Database File */
+
+             IF         COND( &MODE = '2' ) THEN( DO )
+             CPYF:      CPYF ??FROMFILE( &FILNME ) ??TOFILE( SMGLIB/&FILNME ) ??MBROPT() ??CRTFILE()
+             MONMSG     MSGID( CPF0000 )
+             ENDDO
+
+END:       ENDPGM

@@ -1,0 +1,82 @@
+/* @BKC - Utility to Back-up Environment Data */
+/* Author: Sergio Galvez                      */
+
+             PGM        PARM( &SAVLIB )
+
+/* Variable Declaration */
+             DCL        VAR( &ERRMSG ) TYPE( *CHAR ) LEN( 512 )
+             DCL        VAR( &ENV1 )   TYPE( *CHAR ) LEN( 3 )
+             DCL        VAR( &ENV2 )   TYPE( *CHAR ) LEN( 1 )
+             DCL        VAR( &DATE )   TYPE( *CHAR ) LEN( 20 )
+             DCL        VAR( &INDX )   TYPE( *DEC  ) LEN( 2 0 ) VALUE( 00 )     /* Sequence for  */
+             DCL        VAR( &INDC )   TYPE( *CHAR ) LEN( 2 )                   /* CRTSAVF route */
+
+/* Sav Fle Names */
+             DCL        VAR( &CDSAVF ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &IDSAVF ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &FDSAVF ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &IPSAVF ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &CPSAVF ) TYPE( *CHAR ) LEN( 10 )
+
+/* Library Names */
+             DCL        VAR( &COMDTA ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &ICCDTA ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &FTPDTA ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &ICCPAR ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &COMPAR ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &SAVLIB ) TYPE( *CHAR ) LEN( 10 )
+
+/* Check Data Area */
+             CHKOBJ     OBJ( LIBLDTAARA ) OBJTYPE( *DTAARA )
+             MONMSG     MSGID( CPF9801 ) EXEC( DO )
+             CHGVAR     VAR( &ERRMSG ) VALUE( 'Please Add Environment +
+                          to Library List' )
+             GOTO       CMDLBL( END )
+             ENDDO
+
+/* Retrieve Data */
+             RTVDTAARA  DTAARA( LIBLDTAARA ( 21 3 ) ) RTNVAR( &ENV1 )
+             RTVDTAARA  DTAARA( LIBLDTAARA ( 20 1 ) ) RTNVAR( &ENV2 )
+             RTVJOBA    DATETIME( &DATE )
+
+/* Library Names */
+             RTVDTAARA  DTAARA( LIBLDTAARA ( 011 10 ) ) RTNVAR( &COMDTA )
+             RTVDTAARA  DTAARA( LIBLDTAARA ( 031 10 ) ) RTNVAR( &COMPAR )
+             RTVDTAARA  DTAARA( LIBLDTAARA ( 051 10 ) ) RTNVAR( &ICCDTA )
+             RTVDTAARA  DTAARA( LIBLDTAARA ( 071 10 ) ) RTNVAR( &ICCPAR )
+             RTVDTAARA  DTAARA( LIBLDTAARA ( 121 10 ) ) RTNVAR( &FTPDTA )
+
+/* Naming SAVF */
+SAVF:        CHGVAR     VAR( &INDX ) VALUE( &INDX + 1 )
+             CHGVAR     VAR( &INDC ) VALUE( &INDX )
+/*ICCDTA  */ CHGVAR     VAR( &IDSAVF ) VALUE( 'ID' *CAT %SST( &DATE 3 6 ) *CAT &INDC )
+/*COMDTA  */ CHGVAR     VAR( &CDSAVF ) VALUE( 'CD' *CAT %SST( &DATE 3 6 ) *CAT &INDC )
+/*FTPDTA  */ CHGVAR     VAR( &FDSAVF ) VALUE( 'FD' *CAT %SST( &DATE 3 6 ) *CAT &INDC )
+/*COMPAR  */ CHGVAR     VAR( &CPSAVF ) VALUE( 'CP' *CAT %SST( &DATE 3 6 ) *CAT &INDC )
+/*ICCPAR  */ CHGVAR     VAR( &IPSAVF ) VALUE( 'IP' *CAT %SST( &DATE 3 6 ) *CAT &INDC )
+
+/* Create SAVF */
+/*ICCDTA  */ CRTSAVF    FILE( &SAVLIB/&IDSAVF ) TEXT( &ENV1 *CAT &ENV2 *BCAT '||' *BCAT &DATE )
+/*Existing*/ MONMSG     MSGID( CPF5813 CPF7302 ) EXEC( GOTO CMDLBL( SAVF ) )
+/*COMDTA  */ CRTSAVF    FILE( &SAVLIB/&CDSAVF ) TEXT( &ENV1 *CAT &ENV2 *BCAT '||' *BCAT &DATE )
+/*FTPDTA  */ CRTSAVF    FILE( &SAVLIB/&FDSAVF ) TEXT( &ENV1 *CAT &ENV2 *BCAT '||' *BCAT &DATE )
+/*ICCPAR  */ CRTSAVF    FILE( &SAVLIB/&IPSAVF ) TEXT( &ENV1 *CAT &ENV2 *BCAT '||' *BCAT &DATE )
+/*COMPAR  */ CRTSAVF    FILE( &SAVLIB/&CPSAVF ) TEXT( &ENV1 *CAT &ENV2 *BCAT '||' *BCAT &DATE )
+
+/* Save Library */
+             SAVLIB     LIB( &ICCDTA ) DEV( *SAVF ) SAVF( &SAVLIB/&IDSAVF ) SAVACT( *SYNCLIB )
+             MONMSG     MSGID( CPF0000 )
+             SAVLIB     LIB( &COMDTA ) DEV( *SAVF ) SAVF( &SAVLIB/&CDSAVF ) SAVACT( *SYNCLIB )
+             MONMSG     MSGID( CPF0000 )
+             SAVLIB     LIB( &FTPDTA ) DEV( *SAVF ) SAVF( &SAVLIB/&FDSAVF ) SAVACT( *SYNCLIB )
+             MONMSG     MSGID( CPF0000 )
+             SAVLIB     LIB( &ICCPAR ) DEV( *SAVF ) SAVF( &SAVLIB/&IPSAVF ) SAVACT( *SYNCLIB )
+             MONMSG     MSGID( CPF0000 )
+             SAVLIB     LIB( &COMPAR ) DEV( *SAVF ) SAVF( &SAVLIB/&CPSAVF ) SAVACT( *SYNCLIB )
+             MONMSG     MSGID( CPF0000 )
+             CHGVAR     VAR( &ERRMSG ) VALUE( 'Back-up Successfully!.' )
+
+/* Message Code */
+END:         SNDPGMMSG  MSG( &ERRMSG )
+
+             ENDPGM

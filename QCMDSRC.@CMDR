@@ -1,0 +1,255 @@
+      * @CMDD - List previously executed commands
+      * Developed By: Sergio Galvez
+      **************************************************************************
+     H DFTACTGRP( *NO ) ACTGRP( *CALLER ) DATFMT( *ISO ) TIMFMT( *ISO )
+     H OPTION( *NODEBUGIO )
+     H BNDDIR( 'SMGBIND' : 'QSYS/QC2LE' )
+      **************************************************************************
+     F@CMDD     CF   E             WORKSTN SFILE( SFL010 : RRN ) INFDS( Infds )
+     F                                                           INDDS( Ind )
+      **************************************************************************
+      *-------------------------------*
+      *‚STAND ALONE                   *
+      *-------------------------------*
+     D CmdLIST         S            500A   Dim( 500 )
+     D CmdCOUNTER      S              5U 0
+     D WkLOWER         S             26A   Inz( 'abcdefghijklmnopqrstuvwxyz' )
+     D WkUPPER         S             26A   Inz( 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' )
+     D RRN             S              5U 0
+     D IsExitPgm       S               N
+     D IsRefresh       S               N
+     D MsgKey          S              4A
+     D MsgType         S             10A
+
+      *-------------------------------*
+      *‚PROTOTYPE                     *
+      *-------------------------------*
+      // Retrieve Day of Week
+     D F_GetDayName    PR             9A
+     D                                 D   Const Options( *NoPass )
+      *
+      *-------------------------------*
+      * CL Syntax Checking
+     D QCmdCHK         PR                  ExtPGM( 'QCMDCHK' )
+     D                              500A
+     D                               15P 5 Const
+      *
+      *-------------------------------*
+      * Command Line
+     D QusCMDLn        PR                  ExtPGM( 'QUSCMDLN' )
+      *
+      *-------------------------------*
+      * Retrieve Message
+     D f_RtvMsgAPI     PR           232A
+     D  MessageID                     7A   Const
+     D  ReplaceVal                  112A
+     D  MsgFileQual                  20A   Const Options( *Nopass )
+      *
+      *-------------------------------*
+      * Remove SFL Message
+     D F_RmvSflMsg     PR
+     D  ProgramName                  10A   Const
+      *
+      *-------------------------------*
+      * Send SFL Message
+     D F_SndSflMsg     PR
+     D  ProgramName                  10A   Const
+     D  MessageText                  75A   Const
+     D  MessageID                     7A   Const   Options( *Nopass )
+     D  MessageFile                  10A   Const   Options( *Nopass )
+     D  MessageLib                   10A   Const   Options( *Nopass )
+      *
+      *-------------------------------*
+      * CL Command Processor
+     D F_System        PR                  Opdesc
+     D                             2048a   Const Options( *Varsize )
+      *
+      *-------------------------------*
+      * Retrieve Message Request
+     D QMHRTVRQ        PR                  ExtPGM( 'QMHRTVRQ' )
+     D  MessageInfo                        Like( RTVQ0100DS )
+     D  MessageLen                   10I 0 Const
+     D  FormatName                    8A   Const
+     D  MessageType                  10A   Const
+     D  MessageKey                    4A
+     Db                                    Like( ApiErrDS )
+      *-------------------------------*
+      *‚DATA STRUCTURE                *
+      *-------------------------------*
+     D RTVQ0100DS      DS                  Qualified
+     D  BytesReturned                10I 0 OverLay( RTVQ0100DS : 1 )
+     D  BytesAvail                   10I 0 OverLay( RTVQ0100DS : 5 )
+     D  MsgKey                        4A   OverLay( RTVQ0100DS : 9 )
+     D  Reserved                     20A   OverLay( RTVQ0100DS : 13 )
+     D  MsgLenReturn                 10I 0 OverLay( RTVQ0100DS : 33 )
+     D  MsgLenAvail                  10I 0 OverLay( RTVQ0100DS : 37 )
+     D  MsgText                     500A   OverLay( RTVQ0100DS : 41 )
+     D  MsgText2                      2A   OverLay( MsgText : 1 )
+     D  MsgText6                      6A   OverLay( Msgtext : 1 )
+      *
+      * Name Screen Indicators
+     D Ind             DS                  Qualified Inz
+     D  SFLdsp                         N   Overlay( Ind : 31 )
+     D  SFLDspCtL                      N   Overlay( Ind : 32 )
+      *
+      * Program Status Data Structure
+     D                SDS
+     D ProgId                        10A
+      *
+      * File information Data Structure
+     D InfDs           DS
+     D  InfdsFkey                     1A   Overlay( Infds : 369 )
+      *
+      * Error Data Structure
+     D ApiErrDS        DS                  Qualified  Import
+     D  BytesProvided                10I 0
+     D  BytesReturned                10I 0
+     D  ErrMsgId                      7A
+     D  ReservedSpace                 1A
+     D  MsgReplaceVal               112A
+      *
+      *-------------------------------*
+      *‚CONSTANTS                     *
+      *-------------------------------*
+      * Function Keys
+     D  F03            C                   Const( x'33' )
+     D  F05            C                   Const( x'35' )
+     D  F10            C                   Const( x'3A' )
+     D  F12            C                   Const( x'3C' )
+      *
+      * Display Attributes
+     D  Green          C                   Const( x'20' )
+     D  White          C                   Const( x'22' )
+     D  RI             C                   Const( x'01' )
+      *
+      *------------------------------------------------------------------------*
+      * Main Procedure                                                         *
+      *------------------------------------------------------------------------*
+     C                   EvaL      ScDow = %trimr( F_GetDayName() )
+      *
+     C                   DoU       IsExitPgm
+     C                   ExSR      SrRefresh
+     C                   EndDo
+      *
+     C                   EvaL      *INLR = *ON
+     C                   Return
+      *------------------------------------------------------------------------*
+      * Refresh Screen                                                         *
+      *------------------------------------------------------------------------*
+     C     SrRefresh     BegSR
+      *
+     C                   EvaL      Ind.SflDsp    = *OFF
+     C                   EvaL      Ind.SflDspCtL = *OFF
+     C                   EvaL      aCmdMSG       = GREEN
+     C                   EvaL      RRN           = 0
+     C                   Write     CTL010
+     C                   EvaL      CmdCounter    = 0
+     C                   EvaL      IsExitPgm     = *OFF
+     C                   EvaL      MsgKey        = *BLANKS
+     C                   EvaL      MsgType       = '*LAST'
+      *
+     C                   DoU       RTVQ0100DS.BytesAvail = 0
+     C                   CallP     QMHRTVRQ( RTVQ0100DS         :
+     C                                       %len( RTVQ0100DS ) :
+     C                                       'RTVQ0100'         :
+     C                                       MsgType            :
+     C                                       MsgKey             :
+     C                                       ApiErrDS )
+      *
+     C                   If        RTVQ0100DS.BytesAvail > 0
+     C                   EvaL      MsgKey        = RTVQ0100DS.MsgKey
+     C                   EvaL      MsgType       = '*PRV '
+     C                   If        RTVQ0100DS.MsgText2 <> '/*'     and
+     C                             RTVQ0100DS.MsgText6 <> 'ENDRQS'
+     C                   EvaL      FullCmd = %subst( RTVQ0100DS.MsgText : 1 :
+     C                                               RTVQ0100DS.MsgLenReturn )
+      *
+     C                   If        %subst( FullCmd : 1 : 1 ) = '?'
+     C                   EvaL      FullCmd = %subst( FullCmd : 3 )
+     C                   EndIf
+      *
+     C                   If        %subst( FullCmd : 1 : 1 ) = '?'
+     C                   EvaL      FullCmd = %subst( FullCmd : 3 :
+     C                                               %len( FullCmd )-2 )
+     C                   EndIf
+      * Distinct CMDs
+     C                   If        CmdCounter = 0 or
+     C                             %LookUp( FullCmd : CmdList : 1 :
+     C                                      CmdCounter ) = 0
+     C                   EvaL      CmdCounter += 1
+     C                   EvaL      CmdList( CmdCounter ) = FullCmd
+     C                   Callp(E)  QCMDCHK( FullCmd : %len( %Trimr( FullCmd ) ))
+     C                   If        Not %Error
+     C                   EvaL      CmdMSG73 = %xlate( wkLOWER : wkUPPER :
+     C                                                FullCmd )
+     C                   EvaL      RRN += 1
+     C                   Write     SFL010
+     C                   EndIf
+     C                   EndIf
+      *
+     C                   EndIf
+     C                   EndIf
+      *
+     C                   EndDo
+     C                   ExSr      SrSelect
+      *
+     C                   EndSR
+      *------------------------------------------------------------------------*
+      * Selection                                                              *
+      *------------------------------------------------------------------------*
+     C     SrSelect      BegSR
+      *
+     C                   Callp     F_RmvSflMsg( ProgId )
+     C                   EvaL      S1RecNum = 1
+     C                   EvaL      Ind.SflDsp = ( RRN > 0 )
+     C                   EvaL      Ind.SflDspCtl = *ON
+      *
+     C                   DoW       Not ( InfdsfKey = F03 )
+     C                   Write     MSGCTL
+     C                   Write     CTL010
+     C                   ExFmt     FMTMSG
+      *
+     C                   If        InfdsfKey = F05
+     C                   LeaveSr
+     C                   ElseIf    InfdsfKey = F10
+     C                   Callp(E)  QUSCMDLN()
+     C                   ElseIf    ( Not Ind.SflDsp  or
+     C                               InfdsfKey = F03 or
+     C                               InfdsfKey = F12 )
+     C                   EvaL      IsExitPgm = *ON
+     C                   LeaveSr
+     C                   Else
+      * Find selected
+     C                   Callp     F_RmvSflMsg( ProgId )
+     C                   ReadC     SFL010
+      *
+     C                   DoW       Not %eof
+     C                   EvaL      aCmdMSG = GREEN
+     C                   If        SbfOption = '1'
+     C                   Callp     F_System( %trimr( FullCmd ) )
+     C                   ElseIf    SbfOption = '2'
+     C                   Callp     F_System( '?' + FullCmd )
+     C                   EndIf
+      *
+     C                   If        ApiErrDS.BytesReturned > 0
+     C                   EvaL      aCmdMSG = %bitor( White : RI )
+     C                   Callp     F_SndSflMsg( ProgId : ApiErrDS.ErrMsgId +
+     C                             ': ' + F_RtvMsgApi( ApiErrDS.ErrMsgId :
+     C                                               ApiErrDS.MsgReplaceVal ) )
+     C                   Else
+     C                   Callp     F_SndSflMsg( ProgId :
+     C                             %trimr( %subst( FullCmd : 1 : 60 ) ) +
+     C                             ' - Completed.')
+     C                   EndIf
+      *
+     C                   Clear                   SbfOption
+     C                   EvaL      S1RecNum = RRN
+     C                   Update    SFL010
+     C                   ReadC     SFL010
+      *
+     C                   EndDo
+     C                   EndIf
+     C                   EndDo
+      *
+     C                   EndSR
+      *------------------------------------------------------------------------*

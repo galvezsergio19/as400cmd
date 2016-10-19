@@ -1,0 +1,7 @@
+/* @BK - Utility to Back-up Environment Data  */
+/* Author: Sergio Galvez                      */
+
+             CMD        PROMPT( 'Back-up Data' )
+             PARM       KWD( SAVLIB ) TYPE( *CHAR ) LEN( 10 ) MIN( 1 ) +
+                        PROMPT( 'Save to Library:' )
+

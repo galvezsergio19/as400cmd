@@ -1,0 +1,60 @@
+     A*----------------------------------------------------------------
+     A* @CMDD - List previously executed commands - DSPF
+     A* Developed By: Sergio Galvez
+      *----------------------------------------------------------------
+     A                                      DSPSIZ( 24 80 *DS3                 -
+     A                                             27 132 *DS4 )
+     A                                      INDARA
+     A                                      CA03
+     A                                      CA05
+     A                                      CA12
+     A                                      CA10
+     A                                      ENTFLDATR((*COLOR YLW) (*DSPATR UL))
+      *----------------------------------------------------------------
+     A          R SFL010                    SFL
+     A            ACMDMSG        1A  P
+     A            FULLCMD      500A  H
+     A            SBFOPTION      1A  B  8  2
+     A            CMDMSG73      73A  O  8  4DSPATR( &ACMDMSG )
+      *----------------------------------------------------------------
+     A          R CTL010                    SFLCTL( SFL010 ) OVERLAY
+     A                                      SFLPAG( 14 ) SFLSIZ( 72 )
+     A  31                                  SFLDSP
+     A  32                                  SFLDSPCTL
+     A N32                                  SFLCLR
+     A N34                                  SFLEND( *MORE )
+     A            S1RECNUM       4S 0H      SFLRCDNBR( CURSOR )
+     A            SCDOW          9A  O  1 62
+     A                                  1  2'@CMD'
+     A                                  2  2'SGALVEZ'
+     A                                  1 23'Previously Executed Commands'
+     A                                      DSPATR( HI )
+     A                                  1 72DATE EDTWRD( '0  /  /  ' )
+     A                                  4  2'Type options, press Enter.'
+     A                                      COLOR( BLU )
+     A                                  2 72SYSNAME
+     A                                  5  4'1=Run'    COLOR( BLU )
+     A                                  5 14'2=Prompt' COLOR( BLU )
+     A                                  7  2'Commands'
+     A                                      DSPATR( HI )
+      *----------------------------------------------------------------
+     A          R FMTMSG
+     A                                      OVERLAY
+     A                                      BLINK
+     A                                 23  2'F3=Exit'
+     A                                      COLOR( BLU )
+     A                                 23 11'F5=Refresh'
+     A                                      COLOR( BLU )
+     A                                 23 23'F10=Command Line'
+     A                                      COLOR( BLU )
+     A                                 23 41'F12=Cancel'
+     A                                      COLOR( BLU )
+      *----------------------------------------------------------------
+     A          R MSGSFL                    SFL SFLMSGRCD( 24 )
+     A            MSGSFLKEY                 SFLMSGKEY
+     A            PROGID                    SFLPGMQ( 10 )
+     A          R MSGCTL                    SFLCTL( MSGSFL )
+     A                                      SFLDSP SFLDSPCTL SFLINZ
+     A N14                                  SFLEND
+     A                                      SFLPAG( 01 ) SFLSIZ( 02 )
+     A            PROGID                    SFLPGMQ( 10 )

@@ -1,0 +1,49 @@
+/* @DATE - Utility to Manipulate source fields   */
+/* Author: Sergio Galvez                         */
+
+PGM        PARM( &ALIAS &SRCF )
+
+/* Alias */
+             DCL        VAR( &ALIAS  ) TYPE( *CHAR ) LEN( 20 )
+             DCL        VAR( &ALIASN ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &ALIASL ) TYPE( *CHAR ) LEN( 10 )
+
+/* Source */
+             DCL        VAR( &SRCF   ) TYPE( *CHAR ) LEN( 40 )
+             DCL        VAR( &SRCNME ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &SRCLIB ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &SRCMBR ) TYPE( *CHAR ) LEN( 10 )
+
+             DCL        VAR( &SRCTYP ) TYPE( *CHAR ) LEN( 10 )
+             DCL        VAR( &SRCDSC ) TYPE( *CHAR ) LEN( 50 )
+
+/* Capture database name and library */
+
+             CHGVAR     VAR( &ALIASN ) VALUE( %SST( &ALIAS 01 10 ))
+             CHGVAR     VAR( &ALIASL ) VALUE( %SST( &ALIAS 11 10 ))
+             CHGVAR     VAR( &SRCNME ) VALUE( %SST( &SRCF  03 10 ))
+             CHGVAR     VAR( &SRCLIB ) VALUE( %SST( &SRCF  13 10 ))
+             CHGVAR     VAR( &SRCMBR ) VALUE( %SST( &SRCF  23 10 ))
+
+             CHKOBJ     OBJ( &SRCLIB/&SRCNME ) MBR( &SRCMBR ) OBJTYPE( *FILE )
+
+/* Display error message if not existing */
+
+             MONMSG     MSGID( CPF0000 ) EXEC( DO )
+             SNDPGMMSG  MSG( 'Source Not Found in Library List.' ) MSGTYPE( *INFO )
+             GOTO       CMDLBL( END )
+             ENDDO
+
+/* Retrieve object properties */
+
+              RTVMBRD    FILE( &SRCLIB/&SRCNME ) MBR( &SRCMBR ) SRCTYPE( &SRCTYP ) TEXT( &SRCDSC )
+
+/* Output the database file */
+
+              DSPFFD     FILE( &SRCLIB/&SRCNME ) OUTPUT( *OUTFILE ) OUTFILE( QTEMP/SHOWSRC )
+              CALL       PGM( @DATER ) PARM( &ALIASN &ALIASL &SRCNME +
+                                             &SRCLIB &SRCMBR &SRCTYP &SRCDSC )
+              DLTF       FILE( QTEMP/SHOWSRC )
+              CHGVAR     VAR( &SRCF ) VALUE( *BLANKS )
+
+END:          ENDPGM

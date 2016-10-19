@@ -1,0 +1,59 @@
+     H*----------------------------------------------------------------
+     H* @DB2D - Utility to Display Data Base File Fields
+     H* Developed By: Sergio Galvez
+     H*----------------------------------------------------------------
+      //--*COPY DEFINES------------------------------------------
+      /Define ProgramHeaderSpecs
+      /Define Qdbrtvfd
+      /Define ApiErrDS
+      /Define f_CheckMbr
+      /Define f_CheckObj
+      /Define f_OutFileCrtDupObj
+      /Define f_RtvMsgAPI
+      /Define f_SndEscapeMsg
+      /Define p_JCRFFDR
+      /Define p_JCRFFDRV
+      /COPY JCRCMDS,JCRCMDSCPY
+
+     D Alpha8          s              8a
+
+      //--*ENTRY PARMS-------------------------------------------
+     D p_JCRFFDRV      PI
+     D  p_FileQual                   20a
+     D  p_RcdFmt                     10a
+     D  p_UnPack                      4a
+     D  p_Output                      8a
+     D  p_OutFileQual                20a
+     D  p_MbrOpt                     22a
+      //---------------------------------------------------------
+      /free
+ 1b    if %subst(p_FileQual: 11: 10) <> '*LIBL    ';
+          f_CheckObj(%subst(p_FileQual: 11: 10) + 'QSYS      ':'*LIB      ');
+ 1e    endif;
+
+       // check record format name
+       callp QDBRTVFD(
+             Alpha8:
+             8:
+             ReturnFileQual:
+             'FILD0200'  :
+             p_FileQual:
+             p_RcdFmt :
+             '0':
+             '*LCL      ':
+             '*EXT      ':
+             ApiErrDS );
+ 1b    if ApiErrDS.BytesReturned > 0;
+          f_SndEscapeMsg(ApiErrDS.ErrMsgId + ': ' +
+          %trimr(f_RtvMsgApi(ApiErrDS.ErrMsgId : ApiErrDS.MsgReplaceVal)));
+ 1e    endif;
+
+ 1b    if p_Output = '*SRC   ';
+          f_CheckMbr(p_OutFileQual: %subst(p_MbrOpt: 3: 10));
+ 1e    endif;
+
+ 1b    if p_Output = '*OUTFILE ';
+          f_OutFileCrtDupObj(p_OutFileQual: p_MbrOpt: 'JCRFFDF   ');
+ 1e    endif;
+       *inlr = *on;
+       return;

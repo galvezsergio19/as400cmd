@@ -1,0 +1,14 @@
+/* @DATE - Utility to Manipulate source fields   */
+/* Author: Sergio Galvez                         */
+
+             CMD        PROMPT( 'Source File Manipulator' )
+             PARM       KWD( ALIAS ) TYPE( ALIAS ) MIN( 1 ) PROMPT( 'Alias Name' )
+ALIAS:       QUAL       TYPE( *NAME ) LEN( 10 ) MIN( 1 )
+             QUAL       TYPE( *NAME ) LEN( 10 ) DFT( QTEMP ) SPCVAL( ( *LIBL ) ) +
+                        MIN( 0 ) PROMPT( 'Library' )
+
+             PARM       KWD( SRC ) TYPE( E1 ) RSTD( *NO ) MIN( 1 ) MAX( 1 ) PROMPT( 'Source' )
+E1:          ELEM       TYPE( *NAME ) LEN( 10 ) CHOICE( 'Name' ) PROMPT( 'Source File' )
+             ELEM       TYPE( *NAME ) LEN( 10 ) DFT( *LIBL ) SPCVAL( ( *LIBL ) ) PROMPT( 'Library' )
+             ELEM       TYPE( *NAME ) LEN( 10 ) CHOICE( 'Name' ) PROMPT( 'Source Member' )
+

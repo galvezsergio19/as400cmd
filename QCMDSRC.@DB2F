@@ -1,0 +1,16 @@
+     A*----------------------------------------------------------------
+     A* @DB2D - Utility to Display Data Base File Fields
+     A* DEVELOPER: Sergio Galvez
+     A*----------------------------------------------------------------
+     A          R JCRFFDFR                  TEXT('File Field Descriptions')
+     A            FLDTEXT50     50A         COLHDG('Text')
+     A            SBKEY          3A         COLHDG('Sequence Key')
+     A            SBFIELD       10A         COLHDG('Name')
+     A            SBDATATYPE     1A         COLHDG('Attribute')
+     A            SBLENGTH       5S 0       COLHDG('Length')
+     A            SBDECIMAL      1          COLHDG('Decimals')
+     A            SBFROMPOS      5S 0       COLHDG('From')
+     A            SBTOPOS        5S 0       COLHDG('To')
+     A            FLDALIAS      10A         COLHDG('Alias')
+     A            FROMFILE      10A         COLHDG('File')
+     A            FILELIB       10A         COLHDG('Library')

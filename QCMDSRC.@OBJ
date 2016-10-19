@@ -1,0 +1,18 @@
+/* @OBJ - Work with Objects   */
+/* Author: Sergio Galvez      */
+
+             CMD        PROMPT( 'Expanded Object Descriptions' )
+             PARM       KWD( OBJ ) TYPE( OBJ ) PROMPT( 'Object:' )
+ OBJ:        QUAL       TYPE( *GENERIC ) LEN( 10 ) SPCVAL( ( *ALL ) ) MIN( 1 )
+             QUAL       TYPE( *NAME ) LEN( 10 ) SPCVAL( ( *ALL *ALL ) +
+                              ( *ALLUSR *ALLUSR ) ) PROMPT( 'Library:' )
+             PARM       KWD( OBJTYPE ) TYPE( *CHAR ) LEN( 10 ) DFT( *ALL ) +
+                              MIN( 0 ) PROMPT( 'Object type:' )
+             PARM       KWD( EXTOBJATR ) TYPE( *CHAR ) LEN( 10 ) DFT( *ALL ) +
+                              PROMPT( 'Object ATR (PF LF etc.):' )
+             PARM       KWD( CREATEDBY ) TYPE( *CHAR ) LEN( 10 ) DFT( *ALL ) +
+                              CHOICE( '*ALL, User Profile Name' ) +
+                              PROMPT( 'Created by User Profile Name:' )
+             PARM       KWD( ALLOWOPT ) TYPE( *CHAR ) LEN( 4 ) RSTD( *YES ) +
+                              DFT( *YES ) VALUES( *YES *NO ) PROMPT( 'Allow Options Selection:' )
+

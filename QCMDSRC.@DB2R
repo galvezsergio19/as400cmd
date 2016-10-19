@@ -1,0 +1,618 @@
+     H*----------------------------------------------------------------
+     H* @DB2D - Utility to Display Data Base File Fields
+     H* Developed By: Sergio Galvez
+     H*----------------------------------------------------------------
+      /Define ProgramHeaderSpecs
+      /COPY QCMDSRC,CMDREPO
+      /UnDefine ProgramHeaderSpecs
+
+     F@DB2P     o    e             printer oflind(IsOverFlow)  usropn
+     F                                            indds(indp)
+     F@DB2D     cf   e             workstn sfile(SBFDTA1: rrn1) infds(Infds)
+     F                                     sfile(WINDTA3: rrn3) indds(Ind)
+     F                                     sfile(WINDTA4: rrn4) usropn
+     F@DB2F     o    e             disk    extfile(extOfile) extmbr(ExtOMbr)
+     F                                     usropn
+     FRPGSRC    o    f  112        disk    extfile(extOfile) extmbr(ExtOMbr)
+     F                                     usropn
+      //--*STAND ALONE-------------------------------------------
+     D FileActual      s             10a
+     D LibActual       s             10a
+     D KeyFldsArry     s             10a   dim(50)
+     D KeySeqArry      s              1a   dim(50)
+     D SwapName        s             10a
+     D SortByFld       s             10a
+     D SearchKey       s              3a
+     D extOMbr         s             10a
+     D Rpg4Line        s             20a
+     D SortOverlay     s            200a   based(SortPtr)
+     D KeyCount        s                   like(FileScopeArry.NumOfKeys)
+     D SoCount         s                   like(FileScopeArry.NumSelectOmit)
+     D ParmCount       s                   like(SelectOmitSpec.NumberOfParms)
+     D RcdFmtCount     s                   like(Fild0100ds.NumRcdFmts)
+     D LengthOfBuffer  s             10i 0
+     D Rpg4Seqno       s              6s 2
+     D NextFrom        s              5u 0 inz(1)
+     D rrn1            s              5u 0
+     D rrn3            s              5u 0
+     D rrn4            s              5u 0
+     D IsToggleAlias   s               n
+     D IsSearch        s               n
+     D IsFiltered      s               n
+     D fscopePtrSave   s               *
+     D PrtRrn          s              5u 0 inz(0)
+     d xx              s              5u 0 inz(0)
+
+      //--*COPY DEFINES------------------------------------------
+      /Define ApiErrDS
+      /Define Constants
+      /Define Dspatr
+      /Define Infds
+      /Define FunctionKeys
+      /Define Ind
+      /Define f_BuildString
+      /Define Qdbrtvfd
+      /Define Fild0100ds
+      /Define Qlgsort
+      /Define Quslfld
+      /Define Tstbts
+      /Define UserSpaceHeaderDS
+      /Define f_AddSortKey
+      /Define f_DspLastSplf
+      /Define f_GetQual
+      /Define f_OvrPrtf
+      /Define f_Dltovr
+      /Define f_GetDayName
+      /Define f_Quscrtus
+      /Define f_SndCompMsg
+      /Define p_JCRFFDR
+      /COPY QCMDSRC,CMDREPO
+
+      //--*DATA STRUCTURES---------------------------------------
+     D indp            ds                  qualified                            print file indicator
+     D IsUnPacked                      n   overlay(indp:09) inz
+
+     D ScreenFieldDS e ds                  extname(@DB2F) inz
+
+      //--*ENTRY PARMS-------------------------------------------
+     D p_JCRFFDR       PI
+     D  p_FileQual                   20a
+     D  p_RcdFmt                     10a
+     D  p_UnPack                      4a
+     D  p_Output                      8a
+     D  p_OutFileQual                20a
+     D  p_OutMbrOpt                  22a
+      //---------------------------------------------------------
+      /free
+       GenericHeaderPtr = f_Quscrtus(UserSpaceName);
+
+       // Open appropriate output file depend on type selected.
+ 1b    if p_Output = '*       ';  //DISPLAY
+          open @DB2D;
+          evalr scDow = %trimr(f_GetDayName());
+
+ 1x    elseif p_Output = '*PRINT ';
+          f_OvrPrtf('@DB2P ': *OMIT: %subst(p_FileQual: 1: 10));
+          open @DB2P;
+          evalr scDow = %trimr(f_GetDayName());
+          indp.IsUnPacked = (p_UnPack = '*YES');  //set prtf indicator
+
+ 1x    elseif p_Output = '*OUTFILE';
+          extOmbr = %subst(p_OutMbrOpt: 3: 10);
+          extOfile = f_GetQual(p_OutFileQual);
+          open @DB2F;
+
+ 1x    elseif p_Output = '*SRC    ';
+          extOmbr = %subst(p_OutMbrOpt: 3: 10);
+          extOfile = f_GetQual(p_OutFileQual);
+          open RPGSRC;
+ 1e    endif;
+       FldOrAlias = 'Field';
+       IsFirstTime = *on;
+
+       //---------------------------------------------------------
+       // Load file Header information / get offset to key array
+       // API can return data longer than will fit in RPG variable
+       //---------------------------------------------------------
+       AllocateSize = f_GetAllocSize01(p_FileQual: p_RcdFmt);
+       Fild0100ptr = %alloc(AllocateSize);
+       callp QDBRTVFD(
+             Fild0100ds      :
+             AllocateSize:
+             ReturnFileQual :
+             'FILD0100'  :
+             p_FileQual  :
+             p_RcdFmt    :
+             '0'         :
+             '*FILETYPE ':
+             '*EXT      ':
+             ApiErrDS);
+       FileActual = %subst(p_FileQual: 1: 10);
+       LibActual = %subst(ReturnFileQual: 11: 10);
+       scObjHead =  f_BuildString('&  &  &':
+                    FileActual: LibActual: Fild0100ds.FileText);
+       RecordLen = Fild0100ds.FileRecLen;
+       FieldCount = Fild0100ds.NumOfFlds;
+
+       // extract bit info for file type
+       FileType4 = '*PF ';
+ 1b    if tstbts(Fild0100ds.TypeBits: 2) = 1;
+          FileType4 = '*LF ';
+ 1e    endif;
+
+       exsr srLoadRcdFmtInfo;
+
+       //---------------------------------------------------------
+ 1b    if p_Output = '*     ';
+          exsr srProcessSubfile;
+          f_SndCompMsg('@DB2 for ' +
+          %trimr(f_GetQual(FileActual + LibActual)) + ' - completed');
+
+ 1x    elseif p_Output = '*PRINT ';
+          f_Dltovr('@DB2P ');
+          close @DB2P;
+          f_DspLastSplf('@DB2   ': p_Output);
+
+ 1x    elseif p_Output = '*OUTFILE ';
+          close @DB2F;
+          f_SndCompMsg('*Outfile ' + %trimr(extOfile) +
+          ' generated by @DB2.');
+ 1e    endif;
+
+       dealloc Fild0100ptr;
+       *inlr = *on;
+       return;
+       write assume;
+
+       //---------------------------------------------------------
+       begsr srProcessSubfile;
+ 1b    if Fild0100ds.NumRcdFmts  > 1;
+          MultiFmts = 'Press F4 to select format';
+          aF4key = Blue;
+ 1x    else;
+          MultiFmts = *blanks;
+          aF4key = ND;
+ 1e    endif;
+
+ 1b    if p_UnPack = '*NO ';
+          MSGUNPACK = *blanks;
+ 1x    else;
+          MSGUNPACK = '*UNPACKED';
+          RecordLen = sbToPos;
+ 1e    endif;
+       FldOrAlias = 'Field';
+
+ 1b    if FileScopeArry.NumSelectOmit > 0;
+          aF7key = Blue;
+ 1x    else;
+          aF7key = ND;
+ 1e    endif;
+
+ 1b    dow not (InfdsFkey = f03);
+          Ind.sfldsp = rrn1 > 0;
+          Ind.sfldspctl = *on;
+          write SFOOTER1;
+          exfmt SBFCTL1;
+          Message1 = *blanks;
+          IsSearch = *off;
+
+ 2b       if InfdsFkey = f03
+             or InfdsFkey = f12;
+ LV          leavesr;
+
+ 2x       elseif InfdsFkey = f04
+             and Fild0100ds.NumRcdFmts > 1;
+             exsr srPromptRcdFmt;
+
+ 2x       elseif InfdsFkey = F06;
+             exsr srPrintScreen;
+             Message1 = '** Print Completed **';
+
+ 2x       elseif InfdsFkey = F07
+             and FileScopeArry.NumSelectOmit > 0;
+             exsr srSelectOmit;
+
+ 2x       elseif InfdsFkey = f08;
+             IsToggleAlias = *on;
+ 3b          if FldOrAlias = 'Field';  // swap column headings
+                FldOrAlias = 'ALIAS';
+ 3x          else;
+                FldOrAlias = 'Field';
+ 3e          endif;
+
+ 3b          for rrn1 = 1 to GenericHeader.ListEntryCount;
+                chain rrn1 SBFDTA1;
+ 4b             if FldAlias > *blanks;
+                   SwapName = sbField;
+                   sbField = FldAlias;
+                   FldAlias = SwapName;
+ 4e             endif;
+                update SBFDTA1 %fields(FldAlias: sbField);
+ 3e          endfor;
+
+ 2x       elseif InfdsFkey = f09;
+             SortByFld = 'SBFIELD   ';
+             exsr srResequence;
+
+ 2x       elseif InfdsFkey = f10;
+             SortByFld = 'SBFROMPOS ';
+             exsr srResequence;
+
+ 2x       elseif InfdsFkey = f11;
+             SortByFld = 'SBKEY  ';
+             SearchKey = 'Key';
+             IsSearch = *on;
+             exsr srResequence;
+             SearchKey = *blanks;
+
+ 2x       elseif SearchTxt > *blanks
+             or SearchFld > *blanks
+             or SearchTyp > *blanks
+             or SearchLen > 0;
+             IsSearch = *on;
+             SortByFld = *blanks;
+             exsr srResequence;
+ 2x       else;
+             SortByFld = *blanks;
+             exsr srResequence;
+ 2e       endif;
+ 1e    enddo;
+       endsr;
+
+       //---------------------------------------------------------
+       begsr srReadUserSpace;
+       aF8Key = ND;
+       FromFile = FileActual;
+       FileLib = LibActual;
+       QuslfldPtr = GenericHeaderPtr + GenericHeader.OffSetToList;
+       SortPtr = QuslfldPtr;
+
+ 1b    for ForCount = 1 to GenericHeader.ListEntryCount;
+          sbField = QuslfldDS.FieldName;
+          sbDataType = QuslfldDS.FieldType;
+          FldText50 = QuslfldDS.FieldText;
+          FldAlias = QuslfldDS.AliasName;
+ 2b       if QuslfldDS.AliasName > *blanks;
+             aF8Key = Blue;
+ 2e       endif;
+
+ 2b       if FldText50 = *blanks
+             and FldAlias > *blanks; // show alias if no text
+             FldText50 = FldAlias;
+ 2e       endif;
+          // Determine if field Key field and A or Descending.
+          aa = %lookup(sbField: KeyFldsArry: 1: KeyCount);
+ 2b       if aa > 0;
+             sbKey = KeySeqArry(aa) + %char(aa);
+ 2x       else;
+             clear sbKey;
+ 2e       endif;
+
+          //---------------------------------------------------------
+          // Calculate ending position of each field.
+          // If field is alpha, field length is loaded from
+          // QuslfldDS.FieldLengthA field.  if field is numeric, number of
+          // digits and number of decimals are loaded.  if data type
+          // is packed, type field is blanked for printing.
+ 2b       if sbDataType = 'A'
+             or sbDataType = 'Z'
+             or sbDataType = 'T'
+             or sbDataType = 'L';
+             sbLength = QuslfldDS.FieldLengthA;
+             sbDecimal = *blanks;
+ 2x       else;
+             sbLength = QuslfldDS.FieldLengthN;
+             sbDecimal = %triml(%editc(QuslfldDS.DecimalPos:'3'));
+ 3b          if p_UnPack = '*YES';
+                sbDataType = *blanks;
+ 3e          endif;
+ 2e       endif;
+
+ 2b       if p_UnPack = '*NO ';
+             sbFromPos = QuslfldDS.InputPosition;
+             sbToPos = QuslfldDS.OutputPosition + QuslfldDS.FieldLengthA - 1;
+ 2x       else;
+             // calculate from and to positions if *un-packed
+             sbFromPos = NextFrom;
+             NextFrom = sbFromPos + sbLength;
+             sbToPos = NextFrom - 1;
+ 2e       endif;
+
+          // write to selected output type.
+ 2b       if p_Output = '*       ';
+             %subst(QuslfldDS:101: 90) = ScreenFieldDS;
+             sbTxt = FldText50;
+             rrn1 += 1;
+             PrtRrn += 1;
+             write SBFDTA1;
+
+ 2x       elseif p_Output = '*PRINT  ';
+             FldText45 = FldText50;
+             write PrtDetail;
+ 3b          if IsOverFlow;
+                write PrtPageBrk;
+                IsOverFlow = *off;
+ 3e          endif;
+
+ 2x       elseif p_Output = '*OUTFILE';
+             write JCRFFDFR;
+
+ 2x       elseif p_Output = '*SRC    ';
+             Rpg4Line = 'clear ' + %trimr(sbField) + ';';
+             Rpg4Seqno += 1;
+             except Rpg4Src;
+ 2e       endif;
+
+          QuslfldPtr += GenericHeader.ListEntrySize;
+ 1e    endfor;
+       endsr;
+
+       //---------------------------------------------------------
+       // get pointer to file scope array for selected record format
+       begsr srLoadRcdFmtInfo;
+       fscopePtr = Fild0100ptr + Fild0100ds.OffsFileScope;
+ 1b    for RcdFmtCount = 1 to Fild0100ds.NumRcdFmts;
+ 2b       if p_RcdFmt = '*FIRST  '
+             or p_RcdFmt = FileScopeArry.RcdFmt;
+ 1v          leave;
+ 2e       endif;
+          fscopePtr += 160;  //next record format
+ 1e    endfor;
+
+       // load field definitions for record format
+       callp QUSLFLD(
+             UserSpaceName:
+             'FLDL0100':
+             p_FileQual:
+             FileScopeArry.RcdFmt:
+             '0':
+             ApiErrDS);
+
+       // Load Key Fields array for checking against
+       scRcdFmt = FileScopeArry.RcdFmt;
+       KeyList = '*NONE';
+
+ 1b    if tstbts(Fild0100ds.TypeBits: 6) = 1;
+          KeyList = *blanks;
+          KeySpecsPtr = Fild0100ptr + FileScopeArry.OffsKeySpecs;
+
+ 2b       for KeyCount = 1 to FileScopeArry.NumOfKeys;
+             KeyList = %trimr(KeyList) + '  ' + KeySpecsDS.KeyFieldName;
+             KeyFldsArry(KeyCount) = KeySpecsDS.KeyFieldName;
+
+             // check for descending keys.
+ 3b          if tstbts(KeySpecsDS.KeySequenBits: 0) > 0;
+                KeyList = %trimr(KeyList) + '(D)';
+                KeySeqArry(KeyCount) = 'D';
+ 3x          else;
+                KeySeqArry(KeyCount) = 'A';
+ 3e          endif;
+
+             KeySpecsPtr += 32;
+ 2e       endfor;
+          KeyList = %triml(KeyList);
+ 1e    endif;
+       NumbOfKeys = FileScopeArry.NumOfKeys;
+
+ 1b    if p_Output = '*PRINT ';
+          write PrtHead1;
+          write PrtKeys;
+          write PrtHead2;
+ 2b       if FileScopeArry.NumSelectOmit > 0;
+             printso = 'S/O:';
+             exsr srSelectOmit;
+ 2e       endif;
+          write PrtHead3;
+ 1e    endif;
+
+       exsr srReadUserSpace;
+       endsr;
+
+       //---------------------------------------------------------
+       begsr srPromptRcdFmt;
+ 1b    if IsFirstTime;
+          IsFirstTime = *off;
+          Ind.sfldsp3 = *off;
+          Ind.sfldspctl3 = *off;
+          write WINCTL3;
+          rrn3 = 0;
+          clear select3;
+
+          // load record formats
+          fscopePtrSave = fscopePtr;
+          fscopePtr = Fild0100ptr + Fild0100ds.OffsFileScope;
+ 2b       for RcdFmtCount = 1 to Fild0100ds.NumRcdFmts;
+             SbfRcdFmt = FileScopeArry.RcdFmt;
+             rrn3 += 1;
+             write WINDTA3;
+             fscopePtr += 160;  //next record format
+ 2e       endfor;
+          fscopePtr = fscopePtrSave;
+ 1e    endif;
+
+       Ind.sfldsp3 = (rrn3 > 0);
+       Ind.sfldspctl3 = *on;
+       write WINCTL3;
+       exfmt WINFOOT3;
+       readc WINDTA3;
+ 1b    if not %eof and
+          select3 > *blanks;
+          p_RcdFmt = SbfRcdFmt;
+          // rrn1 = 0;
+          //Ind.sfldsp = *off;
+          //Ind.sfldspctl = *off;
+          //write SBFCTL1;
+          select3 = *blanks;
+          update WINDTA3;
+          exsr srLoadRcdFmtInfo;
+ 1e    endif;
+       endsr;
+
+       //---------------------------------------------------------
+       begsr srSelectOmit;
+ 1b    if p_Output = '*      '
+          and InfdsFkey <> F06;
+          Ind.sfldsp4 = *off;
+          Ind.sfldspctl4 = *off;
+          write WINCTL4;
+          rrn4 = 0;
+ 1e    endif;
+       SelectOmitSpecPtr = Fild0100ptr + FileScopeArry.OffsSelectOmit;
+ 1b    for SoCount = 1 to (FileScopeArry.NumSelectOmit - 1);
+ 2b       if SelectOmitSpec.StatementRule = 'S';
+             soType = '*SELECT';
+ 2x       elseif SelectOmitSpec.StatementRule = 'O';
+             soType = '*OMIT  ';
+ 2x       elseif SelectOmitSpec.StatementRule = 'A';
+             soType = '*AND   ';
+ 2e       endif;
+          sofld = SelectOmitSpec.FieldName;  //field name
+          socomp = SelectOmitSpec.CompRelation;  //EQ,NE,GT,LT,ETC
+          SelectOmitParmPtr = Fild0100ptr + SelectOmitSpec.OffsToParms;
+
+          // extract select/omit values.
+ 2b       for ParmCount = 1 to SelectOmitSpec.NumberOfParms;
+             sovalu = %subst(SelectOmitParm.ParmValue: 1:
+             SelectOmitParm.ParmLength-20);
+
+ 3b          if p_Output = '*      '
+                and InfdsFkey <> F06;
+                rrn4 += 1;
+                write WINDTA4;
+ 3x          else;
+                write PrtSelOmt;
+                printso = *blanks;
+ 3e          endif;
+             SelectOmitParmPtr = Fild0100ptr + SelectOmitParm.OffsToNext;
+ 2e       endfor;
+          SelectOmitSpecPtr += 32;
+ 1e    endfor;
+
+ 1b    if p_Output = '*      '
+          and InfdsFkey <> F06;
+          Ind.sfldsp4 = (rrn4 > 0);
+          Ind.sfldspctl4 = *on;
+          write WINCTL4;
+          exfmt WINFOOT4;
+ 1e    endif;
+       endsr;
+
+       //---------------------------------------------------------
+       begsr srPrintScreen;
+       f_OvrPrtf('@DB2P ': *OMIT: %subst(p_FileQual: 1: 10));
+       open @DB2P;
+       write PrtHead1;
+       write PrtKeys;
+       write PrtHead2;
+ 1b    if FileScopeArry.NumSelectOmit > 0;
+          printso = 'S/O:';
+          exsr srSelectOmit;
+ 1e    endif;
+       write PrtHead3;
+
+ 1b    for xx = 1 to PrtRrn;
+          chain xx SBFDTA1;
+          FldText45 = FldText50;
+          write PrtDetail;
+ 2b       if IsOverFlow;
+             write PrtPageBrk;
+             IsOverFlow = *off;
+ 2e       endif;
+ 1e    endfor;
+
+       close @DB2P;
+       f_Dltovr('@DB2P ');
+       endsr;
+
+       //---------------------------------------------------------
+       // Sort user space then reload subfile
+       begsr srResequence;
+       rrn1 = 0;
+       PrtRrn = 0;
+       ind = *off;
+       write SBFCTL1;
+
+ 1b    if IsSearch;
+ 2b       if SearchFld > *blanks;
+             SortByFld = 'SBFIELD   ';
+ 2x       elseif SearchTxt > *blanks;
+             SortByFld = 'SBTEXT    ';
+ 2x       elseif SearchKey > *blanks;
+             SortByFld = 'SBKEY  ';
+ 2e       endif;
+ 1e    endif;
+
+       qlgSortDS = %subst(qlgSortDS: 1: 80);  //drop off keys
+       qlgsortDS.RecordLength = GenericHeader.ListEntrySize;
+       qlgsortDS.RecordCount = GenericHeader.ListEntryCount;
+
+ 1b    if SortByFld = 'SBFIELD   ';
+          qlgsortDS.NumOfKeys = 1;
+          qlgsortDS = %trimr(qlgsortDS) + f_AddSortKey(154: 10);
+
+ 1x    elseif SortByFld = 'SBFROMPOS ';
+          qlgsortDS.NumOfKeys = 1;
+          qlgsortDS = %trimr(qlgsortDS) + f_AddSortKey(171: 5: 2: 1);
+
+ 1x    elseif SortByFld = 'SBTEXT    ';
+          qlgsortDS.NumOfKeys = 1;
+          qlgsortDS = %trimr(qlgsortDS) + f_AddSortKey(101: 50);
+
+ 1x    elseif SortByFld = 'SBKEY  ';
+          qlgsortDS.NumOfKeys = 1;
+          qlgsortDS = %trimr(qlgsortDS) +
+          f_AddSortKey(151: 3: 6: 1);
+
+ 1e    endif;
+
+       qlgsortDS.BlockLength = %len(%trimr(qlgsortDS));
+       LengthOfBuffer =
+       GenericHeader.ListEntryCount * GenericHeader.ListEntrySize;
+       callp QLGSORT(
+             qlgsortDS:
+             SortOverlay:
+             SortOverlay:
+             LengthOfBuffer:
+             LengthOfBuffer:
+             ApiErrDS);
+
+       QuslfldPtr = SortPtr;
+ 1b    for ForCount = 1 to GenericHeader.ListEntryCount;
+          ScreenFieldDS = %subst(Quslfldds:101);
+          IsFiltered = *on;
+
+ 2b       if IsSearch;
+ 3b          if SearchFld > *blanks;
+                IsFiltered = %scan(%trimr(SearchFld): sbField) > 0;
+
+ 3x          elseif SearchKey > *blanks;
+                IsFiltered = (Sbkey > *blanks);
+
+ 3x          elseif SearchTyp > *blanks;
+                IsFiltered = (sbDataType = SearchTyp);
+
+ 3x          elseif SearchLen > 0;
+                IsFiltered = (sbLength = SearchLen);
+
+ 3x          elseif SearchTxt > *blanks;
+                IsFiltered = %scan(%trimr(SearchTxt):
+                %xlate(lo: up: FldText50)) > 0;
+ 3e          endif;
+ 2e       endif;
+
+
+ 2b       if IsFiltered;
+             sbTxt = FldText50;
+             rrn1 += 1;
+             PrtRrn += 1;
+             write SBFDTA1;
+ 2e       endif;
+
+          QuslfldPtr += GenericHeader.ListEntrySize;
+ 1e    endfor;
+       endsr;
+      /end-free
+     ORPGSRC    e            Rpg4Src
+     O                       Rpg4Seqno            6
+     O                                           12 '000000'
+     O                       Rpg4Line            40
